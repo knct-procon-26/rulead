@@ -1,0 +1,56 @@
+import {
+  CameraCapturedPicture,
+  CameraView,
+  useCameraPermissions,
+} from "expo-camera";
+import { useState } from "react";
+import { View, Button, StyleSheet } from "react-native";
+
+type props = {
+  onPictureTaken: (photo: CameraCapturedPicture) => void;
+};
+
+export default function Camera({ onPictureTaken }: props) {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [camera, setCamera] = useState<CameraView | null>(null);
+
+  if (!permission) {
+    return <View></View>;
+  }
+
+  if (!permission.granted) {
+    requestPermission();
+    return <View></View>;
+  }
+
+  async function takePicture() {
+    if (camera) {
+      const photo = await camera.takePictureAsync();
+      onPictureTaken(photo);
+    }
+  }
+
+  return (
+    <View style={styles.container}>
+      <CameraView
+        style={styles.camera}
+        ref={(ref) => setCamera(ref)}
+      ></CameraView>
+      <Button onPress={takePicture} title="Scan"></Button>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  camera: {
+    flex: 1,
+  },
+  separator: {
+    marginVertical: 30,
+    height: 1,
+    width: "80%",
+  },
+});
