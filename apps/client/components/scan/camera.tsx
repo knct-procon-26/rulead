@@ -25,7 +25,9 @@ export default function Camera({ onPictureTaken }: props) {
 
   async function takePicture() {
     if (camera) {
-      const photo = await camera.takePictureAsync();
+      const photo = await camera.takePictureAsync({
+        base64: true,
+      });
       onPictureTaken(photo);
     }
   }

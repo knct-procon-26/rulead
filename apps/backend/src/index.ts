@@ -1,9 +1,20 @@
-import { Hono } from 'hono'
+import { Hono } from "hono";
+import scan from "./scan";
+import { serve } from "bun";
 
-const app = new Hono()
+const app = new Hono();
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
+const routes = app
+  .get("/", (c) => {
+    return c.text("Hello Hono!");
+  })
+  .route("/api/scan", scan);
 
-export default app
+export type AppType = typeof routes;
+
+serve({
+  fetch: app.fetch,
+  port: 3000,
+});
+
+export default app;
