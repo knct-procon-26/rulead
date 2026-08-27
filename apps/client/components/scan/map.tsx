@@ -1,13 +1,8 @@
-import {
-  CameraCapturedPicture,
-  CameraView,
-  useCameraPermissions,
-} from "expo-camera";
-import { useEffect, useState } from "react";
-import { View, Button, StyleSheet } from "react-native";
-import * as Location from "expo-location";
 import { Text } from "@/components/Themed";
-import MapView, { UrlTile } from "react-native-maps";
+import * as Location from "expo-location";
+import { useEffect, useState } from "react";
+import { Button, StyleSheet, View } from "react-native";
+import MapView from "react-native-maps";
 type props = {
   onLocationDecided: () => void;
 };
@@ -47,9 +42,7 @@ export default function Map({ onLocationDecided }: props) {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
-      >
-        // TODO
-      </MapView>
+      ></MapView>
       <Button title="submit" onPress={onLocationDecided} />
     </View>
   );
