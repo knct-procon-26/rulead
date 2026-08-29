@@ -2,7 +2,7 @@ import { Text } from "@/components/Themed";
 import * as Location from "expo-location";
 import { useEffect, useState } from "react";
 import { Button, StyleSheet, View } from "react-native";
-import MapView from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 type props = {
   onLocationDecided: () => void;
 };
@@ -39,9 +39,10 @@ export default function Map({ onLocationDecided }: props) {
         initialRegion={{
           latitude: location?.coords.latitude || 35.6895,
           longitude: location?.coords.longitude || 139.6917,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
         }}
+        provider={PROVIDER_GOOGLE}
       ></MapView>
       <Button title="submit" onPress={onLocationDecided} />
     </View>
