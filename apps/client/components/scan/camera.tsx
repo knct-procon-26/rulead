@@ -4,7 +4,7 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { useState } from "react";
-import { View, Button, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 
 type props = {
   onPictureTaken: (photo: CameraCapturedPicture) => void;
@@ -38,7 +38,7 @@ export default function Camera({ onPictureTaken }: props) {
         style={styles.camera}
         ref={(ref) => setCamera(ref)}
       ></CameraView>
-      <Button onPress={takePicture} title="Scan"></Button>
+      <Pressable onPress={takePicture} ></Pressable>
     </View>
   );
 }
@@ -54,5 +54,12 @@ const styles = StyleSheet.create({
     marginVertical: 30,
     height: 1,
     width: "80%",
+  },
+  button:{
+  width:30,
+  height:30,
+  backgroundColor:"white",
+  borderColor:"black",
+  borderRadius:15,
   },
 });
