@@ -38,7 +38,7 @@ export default function Camera({ onPictureTaken }: props) {
         style={styles.camera}
         ref={(ref) => setCamera(ref)}
       ></CameraView>
-      <Pressable onPress={takePicture} ></Pressable>
+      <Pressable onPress={takePicture} style={styles.button}></Pressable>
     </View>
   );
 }
@@ -56,10 +56,12 @@ const styles = StyleSheet.create({
     width: "80%",
   },
   button:{
-  width:30,
-  height:30,
-  backgroundColor:"white",
-  borderColor:"black",
-  borderRadius:15,
+   left:180,
+   width:50,
+   height:50,
+   backgroundColor:"white",
+   borderColor:"black",
+   borderWidth:5,
+   borderRadius:25,
   },
 });
