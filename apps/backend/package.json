@@ -2,17 +2,26 @@
   "name": "@rulead/backend",
   "main": "./src/index.ts",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
-    "db": "docker run -p 6333:6333 -v C:/Users/0425w/code/rulead/apps/backend/qdrant:/qdrant/storage qdrant/qdrant"
+    "dev": "bun run --hot --env-file=../../.env src/index.ts",
+    "start": "bun run --env-file=../../.env src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:generate:custom": "drizzle-kit generate --custom",
+    "db:migrate": "bun run --env-file=../../.env src/db/migrate.ts",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.9.0",
     "@qdrant/js-client-rest": "~1.19.0",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.13.2",
     "openai": "^7.4.0",
+    "pg": "^8.23.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/pg": "^8.23.1",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10"
   }
 }
