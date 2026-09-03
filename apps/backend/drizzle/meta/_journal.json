@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788419515383,
+      "tag": "0000_wide_colossus",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788419547220,
+      "tag": "0001_productive_drax",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788419583261,
+      "tag": "0002_wooden_iron_patriot",
+      "breakpoints": true
+    }
+  ]
+}

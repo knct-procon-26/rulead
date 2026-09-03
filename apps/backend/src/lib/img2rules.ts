@@ -1,13 +1,11 @@
 import OpenAI from "openai";
-import { QdrantClient } from "@qdrant/js-client-rest";
+import { qdrantClient as DBClient } from "./qdrantClient";
 import z from "zod";
 import { zodTextFormat } from "openai/helpers/zod.js";
 
 const llmClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-const DBClient = new QdrantClient({ url: "http://localhost:6333" });
 
 const outputSchema = z.object({
   isRulesSign: z.boolean(),
