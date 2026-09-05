@@ -4,7 +4,7 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { useState } from "react";
-import { View, Pressable, StyleSheet,Image } from "react-native";
+import { View, Pressable, StyleSheet, Image } from "react-native";
 
 type props = {
   onPictureTaken: (photo: CameraCapturedPicture) => void;
@@ -38,14 +38,26 @@ export default function Camera({ onPictureTaken }: props) {
         style={styles.camera}
         ref={(ref) => setCamera(ref)}
       ></CameraView>
-      <Image style={styles.frame1} source={require("../../assets/images/frame.png")}/>
-      <Image style={styles.frame2} source={require("../../assets/images/frame.png")}/>
-      <Image style={styles.frame3} source={require("../../assets/images/frame.png")}/>
-      <Image style={styles.frame4} source={require("../../assets/images/frame.png")}/>
-      <View style={[styles.screen_base,styles.shape1,styles.pos1]}></View>
-      <View style={[styles.screen_base,styles.shape1,styles.pos2]}></View>
-      <View style={[styles.screen_base,styles.shape2,styles.pos3]}></View>
-      <View style={[styles.screen_base,styles.shape2,styles.pos4]}></View>
+      <Image
+        style={styles.frame1}
+        source={require("../../assets/images/frame.png")}
+      />
+      <Image
+        style={styles.frame2}
+        source={require("../../assets/images/frame.png")}
+      />
+      <Image
+        style={styles.frame3}
+        source={require("../../assets/images/frame.png")}
+      />
+      <Image
+        style={styles.frame4}
+        source={require("../../assets/images/frame.png")}
+      />
+      <View style={[styles.screen_base, styles.topScreen]}></View>
+      <View style={[styles.screen_base, styles.bottomScreen]}></View>
+      <View style={[styles.screen_base, styles.leftScreen]}></View>
+      <View style={[styles.screen_base, styles.rightScreen]}></View>
       <Pressable onPress={takePicture} style={styles.button}></Pressable>
     </View>
   );
@@ -75,54 +87,56 @@ const styles = StyleSheet.create({
     borderWidth: 5,
     borderRadius: 40,
   },
-  frame1:{
-    position:"absolute",
-    left:35,
-    top:80,
+  frame1: {
+    position: "absolute",
+    left: 35,
+    top: 40,
   },
-  frame2:{
-    position:"absolute",
-    right:35,
-    top:80,
-    transform:[{rotate:"90deg"}],
+  frame2: {
+    position: "absolute",
+    right: 35,
+    top: 40,
+    transform: [{ rotate: "90deg" }],
   },
-  frame3:{
-    position:"absolute",
-    right:35,
-    bottom:80,
-    transform:[{rotate:"180deg"}],
+  frame3: {
+    position: "absolute",
+    right: 35,
+    bottom: 100,
+    transform: [{ rotate: "180deg" }],
   },
-  frame4:{
-    position:"absolute",
-    left:35,
-    bottom:80,
-    transform:[{rotate:"270deg"}],
+  frame4: {
+    position: "absolute",
+    left: 35,
+    bottom: 100,
+    transform: [{ rotate: "270deg" }],
   },
-  screen_base:{
-    position:"absolute",
-    opacity:0.3,
-    backgroundColor:"black",
+  screen_base: {
+    position: "absolute",
+    opacity: 0.3,
+    backgroundColor: "black",
   },
-  shape1:{
-    width:"100%",
-    height:80,
+  topScreen: {
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 40,
   },
-  shape2:{
-    width:35,
-    height:"auto",
-    top:80,
-    bottom:80,
+  bottomScreen: {
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
   },
-  pos1:{
-    top:0,
+  leftScreen: {
+    top: 40,
+    bottom: 100,
+    left: 0,
+    width: 35,
   },
-  pos2:{
-    bottom:0,
-  },
-  pos3:{
-    left:0,
-  },
-  pos4:{
-    right:0,
+  rightScreen: {
+    top: 40,
+    bottom: 100,
+    right: 0,
+    width: 35,
   },
 });
