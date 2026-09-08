@@ -1,7 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next, Translation } from 'react-i18next';
-import ja from './locales/ja';
-import en from './locales/en';
+import ja from '../locales/ja';
+import en from '../locales/en';
 
 i18n.use(initReactI18next).init({
     resources: {ja :{translation : ja}, en :{translation : en}},
