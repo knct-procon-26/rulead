@@ -58,6 +58,8 @@ export default function Map({ onLocationDecided }: props) {
     getArea(location.latitude, location.longitude);
   }, [location]);
 
+  // TODO: 自分でエリアを囲って決定できるようにする。
+  // TODO: 公園の名前を変更できるようにする
   return (
     <View style={styles.container}>
       <Text>

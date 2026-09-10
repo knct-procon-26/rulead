@@ -22,6 +22,13 @@
       "when": 1788419583261,
       "tag": "0002_wooden_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789043608196,
+      "tag": "0003_furry_ben_urich",
+      "breakpoints": true
     }
   ]
 }

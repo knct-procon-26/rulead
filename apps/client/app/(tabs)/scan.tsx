@@ -11,6 +11,7 @@ import { useState } from "react";
 import Camera from "@/components/scan/camera";
 import Map from "@/components/scan/map";
 import { api } from "@/lib/client";
+import Confirm from "@/components/scan/confirm";
 
 type ScanState = "camera" | "map" | "confirm";
 type Rule = {
@@ -49,11 +50,7 @@ export default function ScanTab() {
       {scanState === "camera" && <Camera onPictureTaken={onPictureTaken} />}
       {scanState === "map" && <Map onLocationDecided={onLocationDecided} />}
       {scanState === "confirm" && (
-        <View>
-          {rules.map((rule) => (
-            <Text key={rule.id}>{rule.text}</Text>
-          ))}
-        </View>
+        <Confirm onConfirm={() => {}} rules={rules} />
       )}
     </View>
   );
