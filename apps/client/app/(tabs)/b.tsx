@@ -1,13 +1,33 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet } from "react-native";
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import EditScreenInfo from "@/components/EditScreenInfo";
+import { Text, View } from "@/components/Themed";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/client";
 
 export default function TabTwoScreen() {
+  // me test
+  const [me, setMe] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const res = await api.api.me.$get();
+      if (!res.ok) {
+        throw new Error("error");
+      }
+      const data = await res.json();
+      setMe(data.userId);
+    })();
+  }, []);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab Two</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
+      <Text style={styles.title}>{me}</Text>
+      <View
+        style={styles.separator}
+        lightColor="#eee"
+        darkColor="rgba(255,255,255,0.1)"
+      />
       <EditScreenInfo path="app/(tabs)/two.tsx" />
     </View>
   );
@@ -16,16 +36,16 @@ export default function TabTwoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   separator: {
     marginVertical: 30,
     height: 1,
-    width: '80%',
+    width: "80%",
   },
 });
