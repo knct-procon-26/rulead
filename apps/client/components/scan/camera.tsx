@@ -3,8 +3,9 @@ import {
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { View, Pressable, StyleSheet, Image } from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 
 type props = {
   onPictureTaken: (photo: CameraCapturedPicture) => void;
@@ -13,7 +14,27 @@ type props = {
 export default function Camera({ onPictureTaken }: props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [camera, setCamera] = useState<CameraView | null>(null);
+  const [zoom, setZoom] = useState(0);
 
+  const zoomRef = useRef(0);
+  const startZoom = useRef(0);
+  const pinchGesture = Gesture.Pinch()
+  .runOnJS(true)
+  .onBegin(() => {
+    startZoom.current = zoomRef.current;
+  })
+  .onUpdate((event) => {
+    const newZoom = Math.min(
+      Math.max(
+        startZoom.current + (event.scale - 1) * 0.5, 0
+      ),
+      1
+    );
+
+    zoomRef.current = newZoom;
+    setZoom(newZoom);
+  })
+  
   if (!permission) {
     return <View></View>;
   }
@@ -33,33 +54,38 @@ export default function Camera({ onPictureTaken }: props) {
   }
 
   return (
-    <View style={styles.container}>
-      <CameraView
-        style={styles.camera}
-        ref={(ref) => setCamera(ref)}
-      ></CameraView>
-      <Image
-        style={styles.frame1}
-        source={require("../../assets/images/frame.png")}
-      />
-      <Image
-        style={styles.frame2}
-        source={require("../../assets/images/frame.png")}
-      />
-      <Image
-        style={styles.frame3}
-        source={require("../../assets/images/frame.png")}
-      />
-      <Image
-        style={styles.frame4}
-        source={require("../../assets/images/frame.png")}
-      />
-      <View style={[styles.screen_base, styles.topScreen]}></View>
-      <View style={[styles.screen_base, styles.bottomScreen]}></View>
-      <View style={[styles.screen_base, styles.leftScreen]}></View>
-      <View style={[styles.screen_base, styles.rightScreen]}></View>
-      <Pressable onPress={takePicture} style={styles.button}></Pressable>
-    </View>
+    <GestureHandlerRootView style={styles.container}>
+      <GestureDetector gesture={pinchGesture}>
+        <View style={styles.container}>
+          <CameraView
+            style={styles.camera}
+            ref={(ref) => setCamera(ref)}
+            zoom = {zoom}
+          ></CameraView>
+          <Image
+            style={styles.frame1}
+            source={require("../../assets/images/frame.png")}
+          />
+          <Image
+            style={styles.frame2}
+            source={require("../../assets/images/frame.png")}
+          />
+          <Image
+            style={styles.frame3}
+            source={require("../../assets/images/frame.png")}
+          />
+          <Image
+            style={styles.frame4}
+            source={require("../../assets/images/frame.png")}
+          />
+          <View style={[styles.screen_base, styles.topScreen]}></View>
+          <View style={[styles.screen_base, styles.bottomScreen]}></View>
+          <View style={[styles.screen_base, styles.leftScreen]}></View>
+          <View style={[styles.screen_base, styles.rightScreen]}></View>
+          <Pressable onPress={takePicture} style={styles.button}></Pressable>
+        </View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 }
 
