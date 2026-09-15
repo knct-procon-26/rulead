@@ -17,7 +17,7 @@
           "unsigned": true,
           "notNull": true,
           "increment": true,
-          "comment": "",
+          "comment": "generated always as identity",
           "id": "CDfeIKdboTThkfLlOG55s"
         },
         {
@@ -42,7 +42,7 @@
           "check": "",
           "primary": false,
           "unique": false,
-          "notNull": false,
+          "notNull": true,
           "increment": false,
           "comment": "",
           "size": "",
@@ -51,14 +51,14 @@
         {
           "id": "I0EqqNuprL3EGpZv0UaXJ",
           "name": "area",
-          "type": "POINT",
+          "type": "POLYGON",
           "default": "",
-          "check": "",
+          "check": "ST_IsValid(area)",
           "primary": false,
           "unique": false,
           "notNull": true,
           "increment": false,
-          "comment": "",
+          "comment": "PostGIS geometry(Polygon,4326)",
           "size": "",
           "values": []
         },
@@ -80,7 +80,7 @@
           "id": "tx-nLaXtT6KkEox4G0eOL",
           "name": "created_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
@@ -94,7 +94,7 @@
           "id": "P_FffKUZwXO0uKIa-mU-1",
           "name": "updated_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
@@ -120,7 +120,16 @@
         }
       ],
       "comment": "",
-      "indices": [],
+      "indices": [
+        {
+          "id": 0,
+          "name": "parks_area_gist_index",
+          "unique": false,
+          "fields": [
+            "area"
+          ]
+        }
+      ],
       "uniqueConstraints": [],
       "color": "#175e7a",
       "collapsed": false
@@ -134,30 +143,16 @@
       "fields": [
         {
           "name": "id",
-          "type": "INTEGER",
+          "type": "UUID",
           "default": "",
           "check": "",
           "primary": true,
           "unique": false,
-          "unsigned": true,
-          "notNull": true,
-          "increment": true,
-          "comment": "",
-          "id": "-LUhHWQ3rZTKJPjdLMoWN"
-        },
-        {
-          "id": "MPNoBUgbSJbXq-J0brdDh",
-          "name": "qdrant_id",
-          "type": "INTEGER",
-          "default": "",
-          "check": "",
-          "primary": false,
-          "unique": false,
+          "unsigned": false,
           "notNull": true,
           "increment": false,
           "comment": "",
-          "size": "",
-          "values": []
+          "id": "-LUhHWQ3rZTKJPjdLMoWN"
         },
         {
           "id": "B4xjulvrr6ctErylnlWnI",
@@ -191,7 +186,21 @@
           "id": "l7i1oaUfdagw38dQot5uM",
           "name": "created_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "rUpd8tKzQ1mXvBn7Lp0Sa",
+          "name": "updated_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
@@ -225,7 +234,7 @@
           "unsigned": true,
           "notNull": true,
           "increment": true,
-          "comment": "",
+          "comment": "generated always as identity",
           "id": "AwHTsGYl2olVYe1JUM_UR"
         },
         {
@@ -246,7 +255,7 @@
         {
           "id": "VAcM2MULNWbFaV1Ndvvp5",
           "name": "rule_id",
-          "type": "INTEGER",
+          "type": "UUID",
           "default": "",
           "check": "",
           "primary": false,
@@ -272,9 +281,9 @@
           "values": []
         },
         {
-          "id": "pzW6dmmfSqm9OZikRJ_KK",
-          "name": "created_at",
-          "type": "TIMESTAMPTZ",
+          "id": "VjxNSIXlOCcrSX6rWS96-",
+          "name": "created_by",
+          "type": "UUID",
           "default": "",
           "check": "",
           "primary": false,
@@ -286,14 +295,28 @@
           "values": []
         },
         {
-          "id": "VjxNSIXlOCcrSX6rWS96-",
-          "name": "created_by",
-          "type": "UUID",
-          "default": "",
+          "id": "pzW6dmmfSqm9OZikRJ_KK",
+          "name": "created_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
-          "notNull": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "pRuUpd2KzQ9mXvBn7Lp0S",
+          "name": "updated_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
           "increment": false,
           "comment": "",
           "size": "",
@@ -301,7 +324,17 @@
         }
       ],
       "comment": "",
-      "indices": [],
+      "indices": [
+        {
+          "id": 0,
+          "name": "park_rules_park_rule_unique",
+          "unique": true,
+          "fields": [
+            "park_id",
+            "rule_id"
+          ]
+        }
+      ],
       "uniqueConstraints": [],
       "color": "#175e7a",
       "collapsed": false,
@@ -329,14 +362,28 @@
           "values": []
         },
         {
-          "id": "0WknbN9fX0ryZAaltmPNq",
-          "name": "sign_count",
-          "type": "INTEGER",
+          "id": "tKnHsh4Qw2ZpLmXv9Bd1c",
+          "name": "token_hash",
+          "type": "TEXT",
           "default": "",
           "check": "",
           "primary": false,
           "unique": false,
-          "notNull": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "0WknbN9fX0ryZAaltmPNq",
+          "name": "sign_count",
+          "type": "INTEGER",
+          "default": "0",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
           "increment": false,
           "comment": "",
           "size": "",
@@ -371,10 +418,24 @@
           "values": []
         },
         {
+          "id": "00XemlseTfnwpaFt12G5f",
+          "name": "blocked_at",
+          "type": "TIMESTAMPTZ",
+          "default": "",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": false,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
           "id": "tM26UU5UojS9lVC1-DY80",
           "name": "created_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
@@ -388,25 +449,11 @@
           "id": "73OTITxDqlKZKJ09I7OKP",
           "name": "updated_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
           "notNull": true,
-          "increment": false,
-          "comment": "",
-          "size": "",
-          "values": []
-        },
-        {
-          "id": "00XemlseTfnwpaFt12G5f",
-          "name": "blocked_at",
-          "type": "TIMESTAMPTZ",
-          "default": "",
-          "check": "",
-          "primary": false,
-          "unique": false,
-          "notNull": false,
           "increment": false,
           "comment": "",
           "size": "",
@@ -441,7 +488,8 @@
       "locked": false,
       "fields": [
         {
-          "name": "rule_id",
+          "id": "rTrId3KzQ9mXvBn7Lp0Sa",
+          "name": "id",
           "type": "INTEGER",
           "default": "",
           "check": "",
@@ -450,6 +498,20 @@
           "unsigned": true,
           "notNull": true,
           "increment": true,
+          "comment": "generated always as identity",
+          "size": "",
+          "values": []
+        },
+        {
+          "name": "rule_id",
+          "type": "UUID",
+          "default": "",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "unsigned": false,
+          "notNull": true,
+          "increment": false,
           "comment": "",
           "id": "IL_qR1f6o3kld8lO8-Mcw"
         },
@@ -459,7 +521,7 @@
           "type": "TEXT",
           "default": "",
           "check": "",
-          "primary": true,
+          "primary": false,
           "unique": false,
           "notNull": true,
           "increment": false,
@@ -480,10 +542,48 @@
           "comment": "",
           "size": "",
           "values": []
+        },
+        {
+          "id": "rTrCr4KzQ9mXvBn7Lp0Sa",
+          "name": "created_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "rTrUp5KzQ9mXvBn7Lp0Sa",
+          "name": "updated_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
         }
       ],
       "comment": "",
-      "indices": [],
+      "indices": [
+        {
+          "id": 0,
+          "name": "rule_translations_rule_language_unique",
+          "unique": true,
+          "fields": [
+            "rule_id",
+            "language_code"
+          ]
+        }
+      ],
       "uniqueConstraints": [],
       "color": "#175e7a",
       "collapsed": false
@@ -491,21 +591,22 @@
     {
       "id": "QqJY8smT8F4V4w9sOROb5",
       "name": "collections",
-      "x": -1186,
-      "y": 382,
+      "x": -1167.1960339213288,
+      "y": 463.9316405593762,
       "locked": false,
       "fields": [
         {
           "id": "0QtfaVQ6VKNKeXsoz-kJj",
           "name": "id",
-          "type": "SERIAL",
+          "type": "INTEGER",
           "default": "",
           "check": "",
           "primary": true,
           "unique": false,
+          "unsigned": true,
           "notNull": true,
-          "increment": false,
-          "comment": "",
+          "increment": true,
+          "comment": "generated always as identity",
           "size": "",
           "values": []
         },
@@ -527,7 +628,7 @@
         {
           "id": "NIWiuCdPKv-LP97EzQX4E",
           "name": "rule_id",
-          "type": "INTEGER",
+          "type": "UUID",
           "default": "",
           "check": "",
           "primary": false,
@@ -542,7 +643,7 @@
           "id": "ebZi4VybGtco4Fr1SP4vS",
           "name": "count",
           "type": "INTEGER",
-          "default": "",
+          "default": "0",
           "check": "",
           "primary": false,
           "unique": false,
@@ -556,7 +657,35 @@
           "id": "PO3Ne0ZEzdHhqkIA98LOL",
           "name": "last_collected_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "colCr6KzQ9mXvBn7Lp0Sa",
+          "name": "created_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "colUp7KzQ9mXvBn7Lp0Sa",
+          "name": "updated_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
@@ -568,7 +697,17 @@
         }
       ],
       "comment": "",
-      "indices": [],
+      "indices": [
+        {
+          "id": 0,
+          "name": "collections_user_rule_unique",
+          "unique": true,
+          "fields": [
+            "user_id",
+            "rule_id"
+          ]
+        }
+      ],
       "uniqueConstraints": [],
       "color": "#175e7a",
       "collapsed": false
@@ -590,7 +729,7 @@
           "unsigned": true,
           "notNull": true,
           "increment": true,
-          "comment": "",
+          "comment": "generated always as identity",
           "id": "u4okWuJnEUnfuKW4pX2P5"
         },
         {
@@ -611,7 +750,7 @@
           "id": "JzRwEoePRT9S6sEkzlGhP",
           "name": "created_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
@@ -625,7 +764,7 @@
           "id": "niMEGPIIPoYHbtdjHsFNS",
           "name": "updated_at",
           "type": "TIMESTAMPTZ",
-          "default": "",
+          "default": "now()",
           "check": "",
           "primary": false,
           "unique": false,
@@ -659,7 +798,7 @@
           "unsigned": true,
           "notNull": true,
           "increment": true,
-          "comment": "",
+          "comment": "generated always as identity",
           "id": "ZYxx5fJH1hjYKz8Sd3yqf"
         },
         {
@@ -693,7 +832,7 @@
         {
           "id": "PuzXh33yUzZdZ26qDQvKX",
           "name": "rule_id",
-          "type": "INTEGER",
+          "type": "UUID",
           "default": "",
           "check": "",
           "primary": false,
@@ -719,20 +858,6 @@
           "values": []
         },
         {
-          "id": "un2Ib27LmWxS94cNTQ6k3",
-          "name": "created_at",
-          "type": "TIMESTAMPTZ",
-          "default": "",
-          "check": "",
-          "primary": false,
-          "unique": false,
-          "notNull": true,
-          "increment": false,
-          "comment": "",
-          "size": "",
-          "values": []
-        },
-        {
           "id": "DdOcHKG_NTP5VasoFyLst",
           "name": "resolved_at",
           "type": "TIMESTAMPTZ",
@@ -745,10 +870,204 @@
           "comment": "",
           "size": "",
           "values": []
+        },
+        {
+          "id": "un2Ib27LmWxS94cNTQ6k3",
+          "name": "created_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "repUp8KzQ9mXvBn7Lp0Sa",
+          "name": "updated_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
         }
       ],
       "comment": "",
       "indices": [],
+      "uniqueConstraints": [],
+      "color": "#175e7a",
+      "collapsed": false
+    },
+    {
+      "id": "kWd7pQ2xLmR4nVt9bZ1cA",
+      "name": "keywords",
+      "x": 260,
+      "y": 96,
+      "locked": false,
+      "fields": [
+        {
+          "id": "kwId1AbC2dEf3GhI4jKl5",
+          "name": "id",
+          "type": "INTEGER",
+          "default": "",
+          "check": "",
+          "primary": true,
+          "unique": false,
+          "unsigned": true,
+          "notNull": true,
+          "increment": true,
+          "comment": "generated always as identity",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "kwLb2AbC2dEf3GhI4jKl5",
+          "name": "label",
+          "type": "TEXT",
+          "default": "",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "kwCr3AbC2dEf3GhI4jKl5",
+          "name": "created_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "kwUp4AbC2dEf3GhI4jKl5",
+          "name": "updated_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        }
+      ],
+      "comment": "",
+      "indices": [],
+      "uniqueConstraints": [],
+      "color": "#175e7a",
+      "collapsed": false
+    },
+    {
+      "id": "rKw5tJ8vNqX2mYh6dL0pB",
+      "name": "rule_keywords",
+      "x": -220,
+      "y": 660,
+      "locked": false,
+      "fields": [
+        {
+          "id": "rkId1AbC2dEf3GhI4jKl5",
+          "name": "id",
+          "type": "INTEGER",
+          "default": "",
+          "check": "",
+          "primary": true,
+          "unique": false,
+          "unsigned": true,
+          "notNull": true,
+          "increment": true,
+          "comment": "generated always as identity",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "rkRu2AbC2dEf3GhI4jKl5",
+          "name": "rule_id",
+          "type": "UUID",
+          "default": "",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "rkKw3AbC2dEf3GhI4jKl5",
+          "name": "keyword_id",
+          "type": "INTEGER",
+          "default": "",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "rkCr4AbC2dEf3GhI4jKl5",
+          "name": "created_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        },
+        {
+          "id": "rkUp5AbC2dEf3GhI4jKl5",
+          "name": "updated_at",
+          "type": "TIMESTAMPTZ",
+          "default": "now()",
+          "check": "",
+          "primary": false,
+          "unique": false,
+          "notNull": true,
+          "increment": false,
+          "comment": "",
+          "size": "",
+          "values": []
+        }
+      ],
+      "comment": "",
+      "indices": [
+        {
+          "id": 0,
+          "name": "rule_keywords_unique",
+          "unique": true,
+          "fields": [
+            "rule_id",
+            "keyword_id"
+          ]
+        }
+      ],
       "uniqueConstraints": [],
       "color": "#175e7a",
       "collapsed": false
@@ -938,20 +1257,56 @@
     {
       "startTableId": "asHzBPkEdqAESqFpPiBkL",
       "startFieldId": "PuzXh33yUzZdZ26qDQvKX",
-      "endTableId": "JlE_wyk3nNvX4qHecLRg-",
-      "endFieldId": "AwHTsGYl2olVYe1JUM_UR",
+      "endTableId": "Ywm8IwgRwq8AibiZb_NET",
+      "endFieldId": "-LUhHWQ3rZTKJPjdLMoWN",
       "cardinality": "many_to_one",
       "fields": [
         {
           "startFieldId": "PuzXh33yUzZdZ26qDQvKX",
-          "endFieldId": "AwHTsGYl2olVYe1JUM_UR"
+          "endFieldId": "-LUhHWQ3rZTKJPjdLMoWN"
         }
       ],
       "updateConstraint": "No action",
       "deleteConstraint": "No action",
-      "name": "fk_reports_rule_id_park_rules",
+      "name": "fk_reports_rule_id_rules",
       "color": "#808080",
       "id": "YhKc1f31ccNR3OgCUxSUr"
+    },
+    {
+      "startTableId": "rKw5tJ8vNqX2mYh6dL0pB",
+      "startFieldId": "rkRu2AbC2dEf3GhI4jKl5",
+      "endTableId": "Ywm8IwgRwq8AibiZb_NET",
+      "endFieldId": "-LUhHWQ3rZTKJPjdLMoWN",
+      "cardinality": "many_to_one",
+      "fields": [
+        {
+          "startFieldId": "rkRu2AbC2dEf3GhI4jKl5",
+          "endFieldId": "-LUhHWQ3rZTKJPjdLMoWN"
+        }
+      ],
+      "updateConstraint": "No action",
+      "deleteConstraint": "No action",
+      "name": "fk_rule_keywords_rule_id_rules",
+      "color": "#808080",
+      "id": "Zq1rKwRuleFk001XyZaBc"
+    },
+    {
+      "startTableId": "rKw5tJ8vNqX2mYh6dL0pB",
+      "startFieldId": "rkKw3AbC2dEf3GhI4jKl5",
+      "endTableId": "kWd7pQ2xLmR4nVt9bZ1cA",
+      "endFieldId": "kwId1AbC2dEf3GhI4jKl5",
+      "cardinality": "many_to_one",
+      "fields": [
+        {
+          "startFieldId": "rkKw3AbC2dEf3GhI4jKl5",
+          "endFieldId": "kwId1AbC2dEf3GhI4jKl5"
+        }
+      ],
+      "updateConstraint": "No action",
+      "deleteConstraint": "No action",
+      "name": "fk_rule_keywords_keyword_id_keywords",
+      "color": "#808080",
+      "id": "Zq2rKwKwFk002XyZaBcDe"
     }
   ],
   "notes": [],

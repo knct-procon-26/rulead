@@ -9,23 +9,22 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { timestamps, timestampsWithDeletedAt } from "./_timestamps";
+import { parks } from "./parks";
 import { rules } from "./rules";
+import { users } from "./users";
+import { keywords } from "./keywords";
 
-export const ruleTranslations = pgTable(
-  "rule_translations",
+export const ruleKeywords = pgTable(
+  "rule_keywords",
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     ruleId: uuid("rule_id")
       .notNull()
       .references(() => rules.id),
-    languageCode: text("language_code").notNull(),
-    text: text("text").notNull(),
+    keywordId: integer("keyword_id")
+      .notNull()
+      .references(() => keywords.id),
     ...timestamps,
   },
-  (t) => [
-    uniqueIndex("rule_translations_rule_language_unique").on(
-      t.ruleId,
-      t.languageCode,
-    ),
-  ],
+  (t) => [uniqueIndex("rule_keywords_unique").on(t.ruleId, t.keywordId)],
 );

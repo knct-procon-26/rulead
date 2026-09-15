@@ -19,7 +19,7 @@ export const collections = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
-    ruleId: integer("rule_id")
+    ruleId: uuid("rule_id")
       .notNull()
       .references(() => rules.id),
     count: integer("count").notNull().default(0),

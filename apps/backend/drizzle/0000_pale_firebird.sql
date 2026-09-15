@@ -1,17 +1,30 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE TABLE "test_items" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"description" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "spots" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"location" geometry(point) NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "rules" (
-	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "rules_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
-	"qdrant_id" integer NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"text_en" text NOT NULL,
 	"icon_id" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "rules_qdrant_id_unique" UNIQUE("qdrant_id")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "park_rules" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "park_rules_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"park_id" integer NOT NULL,
-	"rule_id" integer NOT NULL,
+	"rule_id" uuid NOT NULL,
 	"hidden_at" timestamp with time zone,
 	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -39,6 +52,7 @@ CREATE TABLE "icons" (
 --> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY NOT NULL,
+	"token_hash" text NOT NULL,
 	"sign_count" integer DEFAULT 0 NOT NULL,
 	"api_call_count" integer DEFAULT 0 NOT NULL,
 	"api_count_reset_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -51,7 +65,7 @@ CREATE TABLE "users" (
 CREATE TABLE "collections" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "collections_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"user_id" uuid NOT NULL,
-	"rule_id" integer NOT NULL,
+	"rule_id" uuid NOT NULL,
 	"count" integer DEFAULT 0 NOT NULL,
 	"last_collected_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -60,7 +74,7 @@ CREATE TABLE "collections" (
 --> statement-breakpoint
 CREATE TABLE "rule_translations" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "rule_translations_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
-	"rule_id" integer NOT NULL,
+	"rule_id" uuid NOT NULL,
 	"language_code" text NOT NULL,
 	"text" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -71,9 +85,24 @@ CREATE TABLE "reports" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "reports_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"reporter_id" uuid NOT NULL,
 	"park_id" integer,
-	"rule_id" integer,
+	"rule_id" uuid,
 	"reason" text NOT NULL,
 	"resolved_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "keywords" (
+	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "keywords_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
+	"label" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "rule_keywords" (
+	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "rule_keywords_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
+	"rule_id" uuid NOT NULL,
+	"keyword_id" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -89,7 +118,11 @@ ALTER TABLE "rule_translations" ADD CONSTRAINT "rule_translations_rule_id_rules_
 ALTER TABLE "reports" ADD CONSTRAINT "reports_reporter_id_users_id_fk" FOREIGN KEY ("reporter_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reports" ADD CONSTRAINT "reports_park_id_parks_id_fk" FOREIGN KEY ("park_id") REFERENCES "public"."parks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reports" ADD CONSTRAINT "reports_rule_id_rules_id_fk" FOREIGN KEY ("rule_id") REFERENCES "public"."rules"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rule_keywords" ADD CONSTRAINT "rule_keywords_rule_id_rules_id_fk" FOREIGN KEY ("rule_id") REFERENCES "public"."rules"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rule_keywords" ADD CONSTRAINT "rule_keywords_keyword_id_keywords_id_fk" FOREIGN KEY ("keyword_id") REFERENCES "public"."keywords"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "spots_location_gist" ON "spots" USING gist ("location");--> statement-breakpoint
 CREATE UNIQUE INDEX "park_rules_park_rule_unique" ON "park_rules" USING btree ("park_id","rule_id");--> statement-breakpoint
 CREATE INDEX "parks_area_gist_index" ON "parks" USING gist ("area");--> statement-breakpoint
 CREATE UNIQUE INDEX "collections_user_rule_unique" ON "collections" USING btree ("user_id","rule_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "rule_translations_rule_language_unique" ON "rule_translations" USING btree ("rule_id","language_code");
+CREATE UNIQUE INDEX "rule_translations_rule_language_unique" ON "rule_translations" USING btree ("rule_id","language_code");--> statement-breakpoint
+CREATE UNIQUE INDEX "rule_keywords_unique" ON "rule_keywords" USING btree ("rule_id","keyword_id");

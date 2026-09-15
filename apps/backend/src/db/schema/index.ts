@@ -1,5 +1,5 @@
-export * from "./testItems";
-export * from "./spots";
+export * from "./_testItems";
+export * from "./_spots";
 export * from "./rules";
 export * from "./parkRules";
 export * from "./parks";
@@ -8,3 +8,5 @@ export * from "./users";
 export * from "./collections";
 export * from "./ruleTranslations";
 export * from "./reports";
+export * from "./keywords";
+export * from "./ruleKeywords";

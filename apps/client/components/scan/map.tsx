@@ -1,6 +1,6 @@
 import { Text } from "@/components/Themed";
 import { getCurrentLocation, reverseGeocode } from "@/lib/utility";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button, StyleSheet, View } from "react-native";
 import MapView, {
   LatLng,
@@ -9,17 +9,19 @@ import MapView, {
   PROVIDER_GOOGLE,
 } from "react-native-maps";
 type props = {
-  onLocationDecided: () => void;
+  onLocationDecided: (area: Area) => void;
 };
 
-type Area = {
+export type Area = {
   geometry: LatLng[];
   name: string;
+  address: string;
 };
 
 export default function Map({ onLocationDecided }: props) {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
+  const [address, setAddress] = useState<string>("");
   const [index, setIndex] = useState<number>(0);
 
   const getLocation = async () => {
@@ -41,6 +43,7 @@ export default function Map({ onLocationDecided }: props) {
           longitude: point.lon,
         })),
         name: element.tags.name || element.tags["name:en"] || "",
+        address: result.address,
       }));
       setAreas(areas);
     } catch (error) {
@@ -58,6 +61,11 @@ export default function Map({ onLocationDecided }: props) {
     getArea(location.latitude, location.longitude);
   }, [location]);
 
+  const onPress = () => {
+    console.log(areas);
+    onLocationDecided(areas[index]);
+  };
+
   // TODO: 自分でエリアを囲って決定できるようにする。
   // TODO: 公園の名前を変更できるようにする
   return (
@@ -67,6 +75,7 @@ export default function Map({ onLocationDecided }: props) {
         {location ? `${location.latitude}, ${location.longitude}` : "取得中..."}
       </Text>
       {areas.length > 0 && <Text>公園の名前: {areas[index].name}</Text>}
+      <Text>住所: {address}</Text>
       <MapView
         style={styles.map}
         initialRegion={{
@@ -96,7 +105,7 @@ export default function Map({ onLocationDecided }: props) {
         title="See Others"
         onPress={() => setIndex((prev) => (prev + 1) % areas.length)}
       />
-      <Button title="submit" onPress={onLocationDecided} />
+      <Button title="submit" onPress={onPress} />
     </View>
   );
 }

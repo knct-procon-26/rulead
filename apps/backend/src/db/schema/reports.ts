@@ -18,7 +18,7 @@ export const reports = pgTable("reports", {
     .notNull()
     .references(() => users.id),
   parkId: integer("park_id").references(() => parks.id),
-  ruleId: integer("rule_id").references(() => rules.id),
+  ruleId: uuid("rule_id").references(() => rules.id),
   reason: text("reason").notNull(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   ...timestamps,

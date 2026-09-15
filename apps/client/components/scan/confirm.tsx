@@ -12,7 +12,7 @@ export default function Confirm({ onConfirm, rules }: props) {
       {rules.map((rule) => (
         <Text key={rule.id}>{rule.text}</Text>
       ))}
-      // TODO: 間違っていた場合に最初からやり直させる
+      {/* // TODO: 間違っていた場合に最初からやり直させる */}
       <Button title="Wrong" onPress={() => {}} />
       <Button title="Confirm" onPress={onConfirm} />
     </View>

@@ -20,7 +20,7 @@ export const parkRules = pgTable(
     parkId: integer("park_id")
       .notNull()
       .references(() => parks.id),
-    ruleId: integer("rule_id")
+    ruleId: uuid("rule_id")
       .notNull()
       .references(() => rules.id),
     hiddenAt: timestamp("hidden_at", { withTimezone: true }),
