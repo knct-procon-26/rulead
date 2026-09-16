@@ -2,33 +2,79 @@ import { StyleSheet } from "react-native";
 
 import EditScreenInfo from "@/components/EditScreenInfo";
 import { Text, View } from "@/components/Themed";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/client";
+import { Icon } from "@/components/Icon";
+import { useFocusEffect } from "expo-router";
 
-export default function TabTwoScreen() {
-  // me test
-  const [me, setMe] = useState<string | null>(null);
+type Badge = { badgeType: "new" | "+1" | "none" };
 
-  useEffect(() => {
-    (async () => {
-      const res = await api.api.me.$get();
-      if (!res.ok) {
-        throw new Error("error");
-      }
-      const data = await res.json();
-      setMe(data.userId);
-    })();
-  }, []);
+type Rule = {
+  id: string;
+  count: number;
+  textEn: string;
+  iconName: string;
+  badge: Badge;
+};
+
+function chooseBadge(count: number, lastCollectedAt: Date): Badge {
+  const now = new Date();
+  if ((now.getTime() - lastCollectedAt.getTime()) / (1000 * 60) < 60) {
+    if (count === 1) {
+      return { badgeType: "new" };
+    } else {
+      return { badgeType: "+1" };
+    }
+  } else {
+    return { badgeType: "none" };
+  }
+}
+
+export default function CollectionTab() {
+  const [signCount, setSignCount] = useState<number | null>(null);
+  const [rules, setRules] = useState<Rule[] | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const res = await api.api.collection.$get();
+        const data = await res.json();
+        setSignCount(data.signCount);
+        setRules(
+          data.rules.map((i) => ({
+            id: i.id,
+            count: i.count,
+            textEn: i.textEn,
+            iconName: i.iconName,
+            badge: chooseBadge(i.count, new Date(i.lastCollectedAt)),
+          })),
+        );
+      })();
+
+      return () => {
+        setRules(null);
+      };
+    }, []),
+  );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{me}</Text>
-      <View
-        style={styles.separator}
-        lightColor="#eee"
-        darkColor="rgba(255,255,255,0.1)"
-      />
-      <EditScreenInfo path="app/(tabs)/two.tsx" />
+      {rules ? (
+        <View style={styles.container}>
+          <Text>撮影した看板：{signCount}</Text>
+          <Text>訪れた公園：{"TODO"}</Text>
+          {rules.map((i) => (
+            <View key={i.id} style={styles.rule}>
+              <Icon name={i.iconName} />
+              <Text>
+                {i.textEn} | {i.count} | {i.badge.badgeType}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text>読み込み中...</Text>
+      )}
     </View>
   );
 }
@@ -39,13 +85,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: "80%",
+  rule: {
+    flexDirection: "row",
   },
 });

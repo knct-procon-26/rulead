@@ -9,6 +9,7 @@ import register from "./register";
 import { HTTPException } from "hono/http-exception";
 import { DrizzleQueryError } from "drizzle-orm";
 import rulesApi from "./rules";
+import collection from "./collection";
 
 const authRoutes = new Hono().route("/register", register);
 
@@ -25,6 +26,7 @@ const apiRoutes = new Hono<AuthContext>()
   .route("/scan", scan)
   .route("/test", test)
   .route("/rules", rulesApi)
+  .route("collection", collection)
   .onError((err, c) => {
     console.error(err);
     if (err instanceof HTTPException) return err.getResponse();

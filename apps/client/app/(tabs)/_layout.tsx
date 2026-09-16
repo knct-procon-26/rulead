@@ -19,7 +19,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="rule"
+        name="index"
         options={{
           title: "Rules",
           tabBarIcon: ({ color }) => (
