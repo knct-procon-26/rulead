@@ -27,8 +27,7 @@ export default async function img2rules(base64Image: string) {
             type: "input_text",
             text: `画像からルールだけを抽出し、英語で教えて。\
           ただし、「野球やサッカーを禁止します」といった複数のルールが一文になっているものは、\
-          それぞれ、最小単位のルールに分割してください。\
-          さらに公園の看板であるか,true,falseで判断してください。`,
+          それぞれ、最小単位のルールに分割してください。`,
           },
           {
             type: "input_image",

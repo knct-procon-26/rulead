@@ -2,8 +2,9 @@ import { zValidator } from "@hono/zod-validator";
 import img2rules from "./lib/img2rules";
 import { Hono } from "hono";
 import z from "zod";
-const app = new Hono();
 
+
+const app = new Hono();
 const extractRulesSchema = z.object({
   base64Image: z.base64(),
 });
@@ -21,16 +22,7 @@ const scan = app.post(
       rules: result,
     }
    );}catch(error){
-      console.log(error);
-       return c.json(
-        {
-          success:false,
-          rules:[{
-            id:"-1",
-            text:"e"
-          }]
-        }
-       );
+      throw new Error("This is not sign.");  
     }
   },
 );
