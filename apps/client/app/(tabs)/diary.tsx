@@ -2,27 +2,11 @@ import { StyleSheet } from "react-native";
 
 import EditScreenInfo from "@/components/EditScreenInfo";
 import { Text, View } from "@/components/Themed";
-import { useEffect, useState } from "react";
-import { api } from "@/lib/client";
 
-export default function TabTwoScreen() {
-  // me test
-  const [me, setMe] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const res = await api.api.me.$get();
-      if (!res.ok) {
-        throw new Error("error");
-      }
-      const data = await res.json();
-      setMe(data.userId);
-    })();
-  }, []);
-
+export default function DiaryTab() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{me}</Text>
+      <Text style={styles.title}>Tab Two</Text>
       <View
         style={styles.separator}
         lightColor="#eee"

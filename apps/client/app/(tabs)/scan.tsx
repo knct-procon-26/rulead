@@ -12,6 +12,7 @@ import Camera from "@/components/scan/camera";
 import Map, { Area } from "@/components/scan/map";
 import { api } from "@/lib/client";
 import Confirm from "@/components/scan/confirm";
+import { useRouter } from "expo-router";
 
 type ScanState = "camera" | "map" | "confirm";
 type Rule = {
@@ -24,6 +25,7 @@ export default function ScanTab() {
   const [photo, setPhoto] = useState<CameraCapturedPicture | null>(null);
   const [rules, setRules] = useState<Rule[]>([]);
   const [area, setArea] = useState<Area | null>(null);
+  const router = useRouter();
 
   const onPictureTaken = (photo: CameraCapturedPicture) => {
     setPhoto(photo);
@@ -74,7 +76,7 @@ export default function ScanTab() {
       });
       console.log("Rules saved:", res);
       const data = await res.json();
-      console.log("Rules saved:", data); //TODO
+      router.navigate("/(tabs)/collection");
     })();
   };
 
