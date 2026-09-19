@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet } from "react-native";
+import {StyleSheet, TouchableOpacity } from "react-native";
 import EditScreenInfo from "@/components/EditScreenInfo";
 import { Text, View } from "@/components/Themed";
+import {Link} from "expo-router";
 import {
   CameraCapturedPicture,
   CameraView,
@@ -16,54 +17,15 @@ type Rule = {
   id: string;
   text: string;
 };
-type response={
-  success:boolean;
-  rules:Rule[];
-};
-const search_Ercode=(code:number)=>{
-  let tmp:string="";
-  switch(code){
-    case 400:tmp="But request";
-             break;
-    case 401:tmp="Unauthorized";
-             break;
-    case 403:tmp="Forbidden";
-             break;
-    case 429:tmp="Too many request";
-             break;
-    case 500:tmp="Internal server error";
-             break;
-    case 502:tmp="Bad gateway";
-             break;
-    case 503:tmp="Service Unavailable";
-             break;
-    default:tmp="something went wrong";
-            break;
-  }
-  return tmp;
-};//メッセージの内容はもう少し考える
- class HTTPException extends Error{
-  public message:string;
-  public id:number;
- constructor(
-  public readonly errorCode:number,
- ){
-  super();
-  this.id=errorCode;
-  this.message=search_Ercode(this.id);
- }
-}
-
-  
-
 export default function ScanTab(){
   const [scanState, setScanState] = useState<ScanState>("camera");
   const [photo, setPhoto] = useState<CameraCapturedPicture | null>(null);
   const [rules, setRules] = useState<Rule[]>([]);
-  const [err,setErr]=useState<HTTPException|Error|undefined>(undefined);
  
-  const end=(mode:ScanState,message:string)=>{
-    viewError(message);
+  const end=(mode:ScanState,message?:string)=>{
+    if(message)viewError(message);
+    setPhoto(null);
+    setRules([]);
     setScanState(mode);
   };
 
@@ -72,55 +34,53 @@ export default function ScanTab(){
     if (photo.base64 === undefined) return;
     setScanState("map");
     (async () => {
-        try{   
+     try{
       const res = await api.api.scan.$post({
         json: { base64Image: photo.base64 ?? "" },
       });
-      if(!res.ok) throw new HTTPException(res.status);
-      else{
-      
-        const data:response = await res.json();
-        if(data.rules.length=== 0){
-         end("camera","ルールを抽出できませんでした。もう一度おねがいします。");
-        }
-        else{
-          if(data.success){
-            setRules(data.rules);
-          }
-          else {
-            end("camera","撮影したものはおそらく看板ではありません。看板を撮影してください。");
-          }
+    
+      if(!res.ok){
+        const err = await res.json();
+        if(!err.success){
+          end("camera",err.message); 
+          return;
         }
       }
+        const data= await res.json();
+        if(data.success){
+            setRules(data.rules);
+        } 
     }catch(error){
-       if(error instanceof Error || error instanceof HTTPException){
-           setErr(error);
-       }
-       else console.log("type of error is not such as Error.");
-    }
+        end("camera","Failed to connect with API.");
+      }
   }
   )();
   };
   
   const onLocationDecided = () => {
     setScanState("confirm");
-     if(err!==undefined)end("camera",err.message);
   };
 
   return (
     <View style={styles.container}>
       {scanState === "camera" && <Camera onPictureTaken={onPictureTaken} />}
       {scanState === "map" && <Map onLocationDecided={onLocationDecided} />}
-      {rules.length===0 && (
+      {rules.length===0 && scanState === "confirm" && (
         <View>
-          <Text>ルールを抽出しています。</Text>
+          <Text style={styles.text}>ルールを抽出しています。</Text>
         </View>
       )}
       {rules.length>0 && scanState === "confirm" && (
-        <View> 
+        <View style={styles.container}> 
           {rules.map((rule) => (
             <Text key={rule.id}>{rule.text}</Text>
           ))}
+          <TouchableOpacity style={styles.button1} onPress={()=>{end("camera");}}>
+            <Text style={styles.text}>別の看板を撮影</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button2} onPress={()=>{end("camera");}}>
+            <Link href="./b" style={styles.text}>コレクションを見る</Link>
+          </TouchableOpacity>
         </View>
         
       )}
@@ -131,5 +91,26 @@ export default function ScanTab(){
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  text:{
+    fontSize:20,
+    padding:30,
+    color:"black"
+  },
+  button1:{
+    position:"absolute",
+    top:"80%",
+    bottom:0,
+    right:"50%",
+    left:0,
+    backgroundColor:"pink",
+  },
+  button2:{
+    position:"absolute",
+    top:"80%",
+    bottom:0,
+    left:"50%",
+    right:0,
+    backgroundColor:"orange",
   }
 });
