@@ -3,6 +3,7 @@ import { getCurrentLocation, reverseGeocode } from "@/lib/utility";
 import {router} from "expo-router";
 import { useEffect, useState } from "react";
 import { Button, StyleSheet, View } from "react-native";
+import {viewError} from "@/lib/utility";
 import MapView, {
   LatLng,
   Marker,
@@ -29,7 +30,7 @@ export default function Map({ onLocationDecided }: props) {
       setLocation(location);
     } catch (error) {
       // TODO: エラー処理を適切に行う
-      alert("位置情報の取得に失敗しました。");
+      viewError("位置情報の取得に失敗しました。");
       router.replace("/");
     }
   };
@@ -46,7 +47,7 @@ export default function Map({ onLocationDecided }: props) {
       }));
       setAreas(areas);
     } catch (error) {
-        alert("エリア情報の取得に失敗しました。");
+    　　viewError("エリア情報の取得に失敗しました。");
         router.replace("/");
     }
   };
