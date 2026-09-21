@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "./lib/validator";
 import img2rules from "./lib/img2rules";
 import { Hono } from "hono";
 import z from "zod";
@@ -28,11 +28,14 @@ const collection = app.get("/", async (c) => {
     .innerJoin(rules, eq(collections.ruleId, rules.id))
     .innerJoin(icons, eq(rules.iconId, icons.id));
 
-  return c.json({
-    success: true,
-    signCount: user.signCount,
-    rules: userCollections,
-  });
+  return c.json(
+    {
+      success: true,
+      signCount: user.signCount,
+      rules: userCollections,
+    },
+    200,
+  );
 });
 
 export default collection;

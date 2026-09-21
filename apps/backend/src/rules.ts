@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "./lib/validator";
 import img2rules from "./lib/img2rules";
 import { Hono } from "hono";
 import z from "zod";

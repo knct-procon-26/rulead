@@ -1,7 +1,7 @@
-import { Button, StyleSheet } from "react-native";
-
+import { StyleSheet, TouchableOpacity } from "react-native";
 import EditScreenInfo from "@/components/EditScreenInfo";
 import { Text, View } from "@/components/Themed";
+import { Link } from "expo-router";
 import {
   CameraCapturedPicture,
   CameraView,
@@ -11,6 +11,7 @@ import { useState } from "react";
 import Camera from "@/components/scan/camera";
 import Map, { Area } from "@/components/scan/map";
 import { api } from "@/lib/client";
+import { viewError } from "../../lib/utility";
 import Confirm from "@/components/scan/confirm";
 import { useRouter } from "expo-router";
 
@@ -19,7 +20,6 @@ type Rule = {
   id: string;
   text: string;
 };
-
 export default function ScanTab() {
   const [scanState, setScanState] = useState<ScanState>("camera");
   const [photo, setPhoto] = useState<CameraCapturedPicture | null>(null);
@@ -27,23 +27,37 @@ export default function ScanTab() {
   const [area, setArea] = useState<Area | null>(null);
   const router = useRouter();
 
+  const reset = () => {
+    setPhoto(null);
+    setRules([]);
+    setArea(null);
+    setScanState("camera");
+  };
+
+  const end = async (message?: string) => {
+    if (message) await viewError(message);
+    reset();
+  };
+
   const onPictureTaken = (photo: CameraCapturedPicture) => {
     setPhoto(photo);
     if (photo.base64 === undefined) return;
     setScanState("map");
     (async () => {
-      // const res = await api.api.scan.$post({
-      //   json: { base64Image: photo.base64 ?? "" },
-      // });
-      const res = await api.api.scan.$post({
-        json: { base64Image: photo.base64 ?? "" },
-      });
-      console.log(res);
-      const data = await res.json();
-      if (data?.success === true) {
-        setRules(data.rules);
-      } else {
-        console.log("?");
+      try {
+        const res = await api.api.scan.$post({
+          json: { base64Image: photo.base64 ?? "" },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setRules(data.rules);
+        } else {
+          const err = await res.json();
+          await end(err.error);
+        }
+      } catch (error) {
+        await end("Failed to connect with API.");
       }
     })();
   };
@@ -75,8 +89,13 @@ export default function ScanTab() {
         },
       });
       console.log("Rules saved:", res);
-      const data = await res.json();
-      router.navigate("/(tabs)/collection");
+      if (res.ok) {
+        router.navigate("/(tabs)/collection");
+        await end();
+      } else {
+        const err = await res.json();
+        await end(err.error);
+      }
     })();
   };
 
@@ -88,9 +107,11 @@ export default function ScanTab() {
   return (
     <View style={styles.container}>
       {scanState === "camera" && <Camera onPictureTaken={onPictureTaken} />}
-      {scanState === "map" && <Map onLocationDecided={onLocationDecided} />}
+      {scanState === "map" && (
+        <Map onLocationDecided={onLocationDecided} end={end} />
+      )}
       {scanState === "confirm" && (
-        <Confirm onConfirm={onConfirm} rules={rules} />
+        <Confirm onConfirm={onConfirm} rules={rules} end={end} />
       )}
     </View>
   );
@@ -99,5 +120,26 @@ export default function ScanTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  text: {
+    fontSize: 20,
+    padding: 30,
+    color: "black",
+  },
+  button1: {
+    position: "absolute",
+    top: "80%",
+    bottom: 0,
+    right: "50%",
+    left: 0,
+    backgroundColor: "pink",
+  },
+  button2: {
+    position: "absolute",
+    top: "80%",
+    bottom: 0,
+    left: "50%",
+    right: 0,
+    backgroundColor: "orange",
   },
 });

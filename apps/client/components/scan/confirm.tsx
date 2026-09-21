@@ -4,16 +4,21 @@ import { Text, View } from "@/components/Themed";
 type props = {
   onConfirm: () => void;
   rules: { id: string; text: string }[];
+  end: (message?: string) => Promise<void>;
 };
 
-export default function Confirm({ onConfirm, rules }: props) {
+export default function Confirm({ onConfirm, rules, end }: props) {
   return (
     <View style={styles.container}>
       {rules.map((rule) => (
         <Text key={rule.id}>{rule.text}</Text>
       ))}
-      {/* // TODO: 間違っていた場合に最初からやり直させる */}
-      <Button title="Wrong" onPress={() => {}} />
+      <Button
+        title="Wrong"
+        onPress={() => {
+          end();
+        }}
+      />
       <Button title="Confirm" onPress={onConfirm} />
     </View>
   );

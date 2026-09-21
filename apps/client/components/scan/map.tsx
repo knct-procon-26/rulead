@@ -1,7 +1,9 @@
 import { Text } from "@/components/Themed";
 import { getCurrentLocation, reverseGeocode } from "@/lib/utility";
+import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Button, StyleSheet, View } from "react-native";
+import { viewError } from "@/lib/utility";
 import MapView, {
   LatLng,
   Marker,
@@ -10,6 +12,7 @@ import MapView, {
 } from "react-native-maps";
 type props = {
   onLocationDecided: (area: Area) => void;
+  end: (message?: string) => Promise<void>;
 };
 
 export type Area = {
@@ -18,7 +21,7 @@ export type Area = {
   address: string;
 };
 
-export default function Map({ onLocationDecided }: props) {
+export default function Map({ onLocationDecided, end }: props) {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [address, setAddress] = useState<string>("");
@@ -29,8 +32,7 @@ export default function Map({ onLocationDecided }: props) {
       const location = await getCurrentLocation();
       setLocation(location);
     } catch (error) {
-      // TODO: エラー処理を適切に行う
-      console.error("位置情報の取得に失敗しました:", error);
+      await end("Failed to retrieve location information.");
     }
   };
 
@@ -47,7 +49,7 @@ export default function Map({ onLocationDecided }: props) {
       }));
       setAreas(areas);
     } catch (error) {
-      console.error("エリア情報の取得に失敗しました:", error);
+      await end("Failed to retrieve area information.");
     }
   };
 
