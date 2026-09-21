@@ -26,10 +26,11 @@ const apiRoutes = new Hono<AuthContext>()
   .route("/scan", scan)
   .route("/test", test)
   .route("/rules", rulesApi)
-  .route("collection", collection)
+  .route("/collection", collection)
   .onError((err, c) => {
     console.error(err);
-    if (err instanceof HTTPException) return err.getResponse();
+    if (err instanceof HTTPException)
+      return c.json({ error: err.message }, err.status);
     switch (pgCode(err)) {
       case "23503":
         return c.json({ error: "referenced resource not found" }, 400);

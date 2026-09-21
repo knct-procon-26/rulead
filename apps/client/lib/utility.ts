@@ -1,6 +1,6 @@
 import Debug from "@/constants/Debug";
 import * as Location from "expo-location";
-import {Alert} from "react-native";
+import { Alert } from "react-native";
 type reverseGeocodeResult = {
   address: string;
   elements: {
@@ -117,13 +117,15 @@ export async function getCurrentLocation(): Promise<{
   };
 }
 
-export function viewError(message:string){
-Alert.alert(
-  'error',
-  message,
-  [
-    {text:"キャンセル",onPress:()=>{console.log("0");}},
-    {text:"了解",onPress:()=>{console.log("1");}}
-  ]
-);
+export async function viewError(message: string) {
+  return new Promise((resolve) => {
+    Alert.alert("error", message, [
+      {
+        text: "OK",
+        onPress: () => {
+          resolve(true);
+        },
+      },
+    ]);
+  });
 }

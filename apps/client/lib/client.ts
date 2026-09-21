@@ -1,11 +1,12 @@
 import type { AppType } from "@rulead/backend";
 import * as SecureStore from "expo-secure-store";
 import Debug from "@/constants/Debug";
-import { hc } from "hono/client";
+import { ApplyGlobalResponse, hc } from "hono/client";
 
 const TOKEN_KEY = "device_token";
 const endpoint = Debug.apiBaseUrl ?? "http://localhost:3000";
 // TODO: ここにAPIのエンドポイントを設定する
+
 const authApi = hc<AppType>(endpoint);
 
 let tokenPromise: Promise<string> | null = null;
@@ -32,6 +33,15 @@ function getToken(): Promise<string> {
   return tokenPromise;
 }
 
-export const api = hc<AppType>(endpoint, {
+type AppWithErrors = ApplyGlobalResponse<
+  AppType,
+  {
+    400: { json: { error: string } };
+    503: { json: { error: string } };
+    500: { json: { error: string } };
+  }
+>;
+
+export const api = hc<AppWithErrors>(endpoint, {
   headers: async () => ({ Authorization: `Bearer ${await getToken()}` }),
 });

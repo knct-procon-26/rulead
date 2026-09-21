@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import { Icon } from "@/components/Icon";
 import { useFocusEffect } from "expo-router";
+import { viewError } from "@/lib/utility";
 
 type Badge = { badgeType: "new" | "+1" | "none" };
 
@@ -38,6 +39,11 @@ export default function CollectionTab() {
     useCallback(() => {
       (async () => {
         const res = await api.api.collection.$get();
+        if (!res.ok) {
+          const err = await res.json();
+          await viewError(err.error);
+          return;
+        }
         const data = await res.json();
         setSignCount(data.signCount);
         setRules(
