@@ -27,5 +27,6 @@ module.exports = ({ config }: ConfigContext): ExpoConfig => ({
         iosGoogleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       },
     ],
+    ["expo-secure-store"],
   ],
 });

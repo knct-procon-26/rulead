@@ -199,7 +199,7 @@ GOOGLE_MAPS_API_KEY - Google maps api を使うためのもの。機密情報な
 
 ### エンドポイント
 
-`apps/client/lib/client.ts` の中身の `"http://localhost:3000/"` の部分は人によって変えなければなりません。
+`apps/client/constants/Debug.ts` の中身の `"http://localhost:3000/"` の部分は人によって変えなければなりません。
 ただ、私は実機で試しているけどエミュレータなら、`"http://localhost:3000/"` のままでもいいかも。
 
 設定する値としては、`ipconfig` コマンドを実行してもらって、その中の IPv4アドレス をコピペしてください。
