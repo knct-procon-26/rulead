@@ -7,7 +7,7 @@ import {
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Camera from "@/components/scan/camera";
 import Map, { Area } from "@/components/scan/map";
 import { api } from "@/lib/client";
@@ -19,6 +19,10 @@ type ScanState = "camera" | "map" | "confirm";
 type Rule = {
   id: string;
   text: string;
+  iconId: number;
+  iconName: string;
+  iconType: "prohibition" | "caution" | "information";
+  keywords: { id: number; label: string }[];
 };
 export default function ScanTab() {
   const [scanState, setScanState] = useState<ScanState>("camera");
@@ -26,8 +30,11 @@ export default function ScanTab() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [area, setArea] = useState<Area | null>(null);
   const router = useRouter();
+  const scanIdRef = useRef(0);
+  const submittingRef = useRef(false);
 
   const reset = () => {
+    scanIdRef.current++;
     setPhoto(null);
     setRules([]);
     setArea(null);
@@ -43,6 +50,7 @@ export default function ScanTab() {
     setPhoto(photo);
     if (photo.base64 === undefined) return;
     setScanState("map");
+    const scanId = ++scanIdRef.current;
     (async () => {
       try {
         const res = await api.api.scan.$post({
@@ -51,12 +59,15 @@ export default function ScanTab() {
 
         if (res.ok) {
           const data = await res.json();
+          if (scanId !== scanIdRef.current) return;
           setRules(data.rules);
         } else {
           const err = await res.json();
+          if (scanId !== scanIdRef.current) return;
           await end(err.error);
         }
       } catch (error) {
+        if (scanId !== scanIdRef.current) return;
         await end("Failed to connect with API.");
       }
     })();
@@ -69,9 +80,11 @@ export default function ScanTab() {
   };
 
   const onConfirm = async () => {
+    if (!area || submittingRef.current) return;
+    submittingRef.current = true;
     console.log(area);
     if (!area) return;
-    (async () => {
+    try {
       const res = await api.api.rules.$post({
         json: {
           park: {
@@ -82,13 +95,9 @@ export default function ScanTab() {
               longitude: point.longitude,
             })),
           },
-          rules: rules.map((rule) => ({
-            id: rule.id,
-            text: rule.text,
-          })),
+          ruleIds: rules.map((rule) => rule.id),
         },
       });
-      console.log("Rules saved:", res);
       if (res.ok) {
         router.navigate("/(tabs)/collection");
         await end();
@@ -96,7 +105,11 @@ export default function ScanTab() {
         const err = await res.json();
         await end(err.error);
       }
-    })();
+    } catch {
+      await end("Failed to connect with API.");
+    } finally {
+      submittingRef.current = false;
+    }
   };
 
   /*
