@@ -106,8 +106,9 @@ export default function Map({ onLocationDecided, end }: props) {
       <Button
         title="See Others"
         onPress={() => setIndex((prev) => (prev + 1) % areas.length)}
+        disabled={areas.length === 0}
       />
-      <Button title="submit" onPress={onPress} />
+      <Button title="submit" onPress={onPress} disabled={areas.length === 0} />
     </View>
   );
 }

@@ -24,9 +24,8 @@ const scan = app.post(
     } catch (err) {
       if (err === "This is not rule sign.") {
         throw new HTTPException(400, { message: err });
-      } else {
-        throw new Error();
       }
+      throw err;
     }
   },
 );

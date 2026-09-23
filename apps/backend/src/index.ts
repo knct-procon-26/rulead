@@ -3,7 +3,7 @@ import scan from "./scan";
 import test from "./test";
 import { serve } from "bun";
 import { qdrantClient } from "./lib/qdrantClient";
-import { ensureRulesCollection } from "./lib/qdrantSetup";
+import { COLLECTIONS, ensureCollections } from "./lib/qdrantSetup";
 import { AuthContext, requireAuth } from "./auth";
 import register from "./register";
 import { HTTPException } from "hono/http-exception";
@@ -47,7 +47,7 @@ const app = new Hono().route("/auth", authRoutes).route("/api", apiRoutes);
 
 export type AppType = typeof app;
 
-await ensureRulesCollection(qdrantClient);
+await ensureCollections(qdrantClient, Object.values(COLLECTIONS));
 
 // serve({
 //   fetch: app.fetch,

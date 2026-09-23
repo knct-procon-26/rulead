@@ -187,6 +187,7 @@ androidをexpo goというものを経由せずに本当にビルドします。
 
 PORT - apiサーバーを公開するポート番号。とりあえず3000でよい。  
 OPENAI_API_KEY - ChatGPTをアプリで使うために必要。機密情報なので、聞いたら教えます。  
+JEV_API_KEY - Jevをアプリで使うために必要。機密情報なので、聞いたら教えます。  
 POSTGRES_USER - DB のユーザーネーム。好きなようにどうぞ。  
 POSTGRES_PASSWORD - DB のパスワード。好きなようにどうぞ。  
 POSTGRES_DB - DB の名前。好きなようにどうぞ。  

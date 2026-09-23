@@ -1,7 +1,15 @@
 //TODO: アイコンを表示するコンポーネントを作成する。
-import { View, Text, StyleSheet, Image } from "react-native";
+import { StyleSheet, Image } from "react-native";
+import { Text, View } from "@/components/Themed";
+import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 
-export function Icon({ name }: { name: string }) {
+export function Icon({
+  name,
+  iconType,
+}: {
+  name: string;
+  iconType: "prohibition" | "caution" | "information";
+}) {
   return (
     <>
       {name === "nodata" ? (
@@ -10,7 +18,10 @@ export function Icon({ name }: { name: string }) {
           source={require("../assets/images/icon.png")}
         />
       ) : (
-        <Text style={styles.icon}>TODO</Text>
+        <>
+          <MaterialDesignIcons name={name as any} color="#fff" size={40} />
+          <Text>{iconType}</Text>
+        </>
       )}
     </>
   );

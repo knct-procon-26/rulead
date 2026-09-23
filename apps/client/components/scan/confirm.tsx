@@ -1,17 +1,32 @@
-import { Button, StyleSheet } from "react-native";
+import { Button, ScrollView, StyleSheet } from "react-native";
 import { Text, View } from "@/components/Themed";
+import { useRef } from "react";
+import { Icon } from "../Icon";
 
+type Rule = {
+  id: string;
+  text: string;
+  iconId: number;
+  iconName: string;
+  iconType: "prohibition" | "caution" | "information";
+  keywords: { id: number; label: string }[];
+};
 type props = {
   onConfirm: () => void;
-  rules: { id: string; text: string }[];
+  rules: Rule[];
   end: (message?: string) => Promise<void>;
 };
 
 export default function Confirm({ onConfirm, rules, end }: props) {
+  console.log(rules);
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       {rules.map((rule) => (
-        <Text key={rule.id}>{rule.text}</Text>
+        <View style={styles.xStack} key={rule.id}>
+          <Icon name={rule.iconName} iconType={rule.iconType}></Icon>
+          <Text>{rule.text}</Text>
+          <Text>{rule.keywords.map((i) => i.label).join(", ")}</Text>
+        </View>
       ))}
       <Button
         title="Wrong"
@@ -19,15 +34,24 @@ export default function Confirm({ onConfirm, rules, end }: props) {
           end();
         }}
       />
-      <Button title="Confirm" onPress={onConfirm} />
-    </View>
+      <Button
+        title="Confirm"
+        onPress={onConfirm}
+        disabled={rules.length === 0}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    // justifyContent: "center",
+    // alignItems: "center",
+  },
+
+  xStack: {
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
 });
