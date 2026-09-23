@@ -8,9 +8,10 @@
     "db:generate:custom": "drizzle-kit generate --custom",
     "db:migrate": "bun run --env-file=../../.env src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "vector": "bun run --env-file=../../.env src/lib/icons2vectors.ts "
+    "vector": "bun run --env-file=../../.env src/lib/icons2vectors.ts"
   },
   "dependencies": {
+    "@google-cloud/translate": "^10.1.0",
     "@hono/zod-validator": "^0.9.0",
     "@qdrant/js-client-rest": "~1.19.0",
     "@react-native-vector-icons/material-design-icons": "^13.1.4",
