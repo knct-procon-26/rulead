@@ -18,7 +18,7 @@ const extractRulesSchema = z.object({
   to: z.string(),
 });
 
-const scan = app.post(
+const translateRule = app.post(
   "/",
   zValidator("json", extractRulesSchema),
   async (c) => {
@@ -87,4 +87,4 @@ const scan = app.post(
   },
 );
 
-export default scan;
+export default translateRule;
