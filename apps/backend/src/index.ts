@@ -11,6 +11,7 @@ import { DrizzleQueryError } from "drizzle-orm";
 import rulesApi from "./rules";
 import collection from "./collection";
 import translateRule from "./translateRules";
+import report from "./report";
 
 const authRoutes = new Hono().route("/register", register);
 
@@ -29,6 +30,7 @@ const apiRoutes = new Hono<AuthContext>()
   .route("/rules", rulesApi)
   .route("/collection", collection)
   .route("/translate", translateRule)
+  .route("/report", report)
   .onError((err, c) => {
     console.error(err);
     if (err instanceof HTTPException)
