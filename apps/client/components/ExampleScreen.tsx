@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, AppState, Button, FlatList } from "react-native";
+import { Alert, AppState, Button, FlatList, Text, View } from "react-native";
 import * as ParkTracker from "../modules/park-tracker"; // ← 置いた場所に合わせる
 import Debug from "@/constants/Debug";
 import { api, getToken } from "@/lib/client";
-import { Text, View } from "@/components/Themed";
 const API_URL = `${Debug.apiBaseUrl}/api/parks/nearby`; // ← 自分のサーバーに変える
 const trackerOptions = async (): Promise<ParkTracker.TrackerOptions> => ({
   apiUrl: API_URL,
