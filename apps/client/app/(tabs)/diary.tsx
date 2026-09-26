@@ -1,18 +1,11 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import Colors from "@/constants/Colors";
 
-import EditScreenInfo from "@/components/EditScreenInfo";
-import { Text, View } from "@/components/Themed";
-
+// TODO: 公園日記
 export default function DiaryTab() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab Two</Text>
-      <View
-        style={styles.separator}
-        lightColor="#eee"
-        darkColor="rgba(255,255,255,0.1)"
-      />
-      <EditScreenInfo path="app/(tabs)/two.tsx" />
+      <Text style={styles.text}>準備中です</Text>
     </View>
   );
 }
@@ -22,14 +15,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: Colors.background,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: "80%",
+  text: {
+    fontSize: 16,
+    color: Colors.subText,
   },
 });
