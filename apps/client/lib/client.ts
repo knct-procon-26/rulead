@@ -11,7 +11,7 @@ const authApi = hc<AppType>(endpoint);
 
 let tokenPromise: Promise<string> | null = null;
 
-function getToken(): Promise<string> {
+export function getToken(): Promise<string> {
   // console.log("www");
   if (!tokenPromise) {
     tokenPromise = (async () => {
