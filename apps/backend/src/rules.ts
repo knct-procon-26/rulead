@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "./lib/validator";
 import img2rules from "./lib/img2rules";
 import { Hono } from "hono";
 import z from "zod";
@@ -22,13 +22,14 @@ const extractRulesSchema = z.object({
       }),
     ),
   }),
-  rules: z.array(
-    z.object({
-      id: z.string(),
-      text: z.string(),
-      iconId: z.number().optional(),
-    }),
-  ),
+  // rules: z.array(
+  //   z.object({
+  //     id: z.string(),
+  //     text: z.string(),
+  //     iconId: z.number().optional(),
+  //   }),
+  // ),
+  ruleIds: z.array(z.uuid()),
 });
 
 const rulesApi = app.post(
@@ -38,9 +39,10 @@ const rulesApi = app.post(
     const data = c.req.valid("json");
     const userId = c.var.userId;
 
-    const uniqueRules = [
-      ...new Map(data.rules.map((r) => [r.id, r])).values(),
-    ].sort((a, b) => a.id.localeCompare(b.id));
+    // const uniqueRules = [
+    //   ...new Map(data.rules.map((r) => [r.id, r])).values(),
+    // ].sort((a, b) => a.id.localeCompare(b.id));
+    const ruleIds = [...new Set(data.ruleIds)].sort();
 
     const result = await db.transaction(async (tx) => {
       let parkId: number;
@@ -67,27 +69,30 @@ const rulesApi = app.post(
         parkId = data.park.id;
       }
 
-      if (uniqueRules.length === 0) {
+      // if (uniqueRules.length === 0) {
+      if (ruleIds.length === 0) {
         return { parkId, ruleIds: [] };
       }
 
-      await tx
-        .insert(rules)
-        .values(
-          uniqueRules.map((r) => ({
-            id: r.id,
-            textEn: r.text,
-            iconId: r.iconId ?? 1,
-          })),
-        )
-        .onConflictDoNothing({ target: rules.id });
+      // await tx
+      //   .insert(rules)
+      //   .values(
+      //     uniqueRules.map((r) => ({
+      //       id: r.id,
+      //       textEn: r.text,
+      //       iconId: r.iconId ?? 1,
+      //     })),
+      //   )
+      //   .onConflictDoNothing({ target: rules.id });
 
       await tx
         .insert(parkRules)
         .values(
-          uniqueRules.map((r) => ({
+          // uniqueRules.map((r) => ({
+          ruleIds.map((ruleId) => ({
             parkId,
-            ruleId: r.id,
+            // ruleId: r.id,
+            ruleId,
             createdBy: userId,
           })),
         )
@@ -96,9 +101,11 @@ const rulesApi = app.post(
       await tx
         .insert(collections)
         .values(
-          uniqueRules.map((r) => ({
+          // uniqueRules.map((r) => ({
+          ruleIds.map((ruleId) => ({
             userId,
-            ruleId: r.id,
+            // ruleId: r.id,
+            ruleId,
             count: 1,
             lastCollectedAt: new Date(),
           })),
@@ -116,7 +123,8 @@ const rulesApi = app.post(
         .set({ signCount: sql`${users.signCount} + 1` })
         .where(eq(users.id, userId));
 
-      return { parkId, ruleIds: uniqueRules.map((r) => r.id) };
+      // return { parkId, ruleIds: uniqueRules.map((r) => r.id) };
+      return { parkId, ruleIds };
     });
 
     return c.json(result, 201);
