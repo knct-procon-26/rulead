@@ -23,4 +23,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.subText,
   },
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
 });
