@@ -7,7 +7,6 @@ import { allowRegister } from "./lib/rateLimit";
 
 const app = new Hono();
 
-/** Cloudflare 経由なら cf-connecting-ip（Cloudflare が上書きするので偽装できない）、それ以外は接続元 */
 function clientIp(c: Parameters<typeof getConnInfo>[0]): string | null {
   const cf = c.req.header("cf-connecting-ip");
   if (cf) return cf;
