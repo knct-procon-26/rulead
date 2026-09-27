@@ -33,6 +33,7 @@ object Grid {
  * polygons[i] が1つのポリゴンで、polygons[i][0] が外周、polygons[i][1..] が穴。
  * 各リングは [lng0, lat0, lng1, lat1, ...] の平坦な配列（GeoJSON と同じ 経度, 緯度 の順）。
  * rulesJson はサーバーの properties.rules（RuleResult の配列）をそのまま JSON 文字列で持つ（JS 側で解釈する）。
+ * geometryJson はサーバーの geometry（GeoJSON の Polygon / MultiPolygon）をそのまま JSON 文字列で持つ（日記の地図用）。
  */
 class Park(
     val id: String,
@@ -40,6 +41,7 @@ class Park(
     private val polygons: List<List<DoubleArray>>,
     val address: String = "",
     val rulesJson: String = "[]",
+    val geometryJson: String = "",
 ) {
     val displayName: String get() = name.ifEmpty { "公園" }
 
@@ -173,7 +175,7 @@ object GeoJson {
                 "MultiPolygon" -> (0 until coords.length()).map { parsePolygon(coords.getJSONArray(it)) }
                 else -> continue
             }
-            parks += Park(id, name, polygons, address, rulesJson)
+            parks += Park(id, name, polygons, address, rulesJson, geom.toString())
         }
         return parks
     }

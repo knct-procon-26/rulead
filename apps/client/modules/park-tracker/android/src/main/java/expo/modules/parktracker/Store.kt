@@ -19,6 +19,7 @@ import java.util.Locale
  *  - fixes       : 公園内にいる間に取った位置（JS から読む／消す）
  *  - sightings   : カメラの見守り中に ML Kit で見つかったラベル。公園 × 日 × ラベルで1行（JS から読む／消す。日記用）
  *  - rule_alerts : ラベルがルールのキーワードに一致して通知した記録（JS から読む／消す。日記用）
+ *  - visited_parks: 入ったことのある公園の名前・住所・ジオメトリ（日記の地図用。parks_cache と違い自動では消さない）
  *  画像そのものはどこにも保存しない。
  *
  * サービスと RN モジュールの両方から使うので、プロセス内で1インスタンスにする。
@@ -31,8 +32,9 @@ class Store private constructor(ctx: Context) :
         /**
          * v3: sightings / rule_alerts を追加（v2 のデータはそのまま残す）
          * v4: park_details を追加。ルール入りのレスポンスを取り直すため parks_cache だけ空にする
+         * v5: visited_parks を追加。移行時、残っている parks_cache から訪問済みの公園のジオメトリを埋める
          */
-        private const val DB_VERSION = 4
+        private const val DB_VERSION = 5
 
         @Volatile private var instance: Store? = null
         fun get(ctx: Context): Store =
@@ -46,6 +48,7 @@ class Store private constructor(ctx: Context) :
     data class ParkDetails(val parkId: String, val name: String, val address: String, val rulesJson: String, val fetchedAt: Long)
     data class Fix(val time: Long, val lat: Double, val lng: Double, val accuracy: Float, val parkIds: String)
     data class Visit(val parkId: String, val name: String, val day: String, val enteredAt: Long)
+    data class VisitedPark(val parkId: String, val name: String, val address: String, val geometryJson: String, val updatedAt: Long)
 
     data class SeenLabel(val index: Int, val label: String, val confidence: Float)
     data class Sighting(
@@ -79,6 +82,50 @@ class Store private constructor(ctx: Context) :
         db.execSQL("CREATE INDEX fixes_t ON fixes (t)")
         createWatchTables(db)
         createDetailsTable(db)
+        createVisitedParksTable(db)
+    }
+
+    /** v5 で追加したテーブル */
+    private fun createVisitedParksTable(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS visited_parks (park_id TEXT PRIMARY KEY, name TEXT NOT NULL, address TEXT NOT NULL, " +
+                "geometry TEXT NOT NULL, updated_at INTEGER NOT NULL)",
+        )
+    }
+
+    /**
+     * v4 → v5 の移行用：まだ残っている parks_cache のレスポンスから、visits にある公園のジオメトリを visited_parks に入れる。
+     * 壊れたレスポンスは飛ばす（移行自体は失敗させない）。
+     */
+    private fun backfillVisitedParks(db: SQLiteDatabase) {
+        val visited = HashSet<String>()
+        db.rawQuery("SELECT DISTINCT park_id FROM visits", null).use { c ->
+            while (c.moveToNext()) visited += c.getString(0)
+        }
+        if (visited.isEmpty()) return
+        val rows = ArrayList<Pair<String, Long>>()
+        db.rawQuery("SELECT body, fetched_at FROM parks_cache ORDER BY fetched_at", null).use { c ->
+            while (c.moveToNext()) rows += c.getString(0) to c.getLong(1)
+        }
+        // 古い順に入れて新しいもので上書きする
+        for ((body, fetchedAt) in rows) {
+            val parks = try { GeoJson.parseParks(body) } catch (e: Exception) { continue }
+            for (p in parks) {
+                if (p.id in visited) putVisitedPark(db, p, fetchedAt)
+            }
+        }
+    }
+
+    private fun putVisitedPark(db: SQLiteDatabase, park: Park, updatedAt: Long) {
+        if (park.geometryJson.isEmpty()) return
+        val v = ContentValues().apply {
+            put("park_id", park.id)
+            put("name", park.name)
+            put("address", park.address)
+            put("geometry", park.geometryJson)
+            put("updated_at", updatedAt)
+        }
+        db.insertWithOnConflict("visited_parks", null, v, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
     /** v4 で追加したテーブル */
@@ -120,6 +167,11 @@ class Store private constructor(ctx: Context) :
             createDetailsTable(db)
             db.delete("parks_cache", null, null)
         }
+        // v4 → v5: 日記の地図用に、訪れた公園のジオメトリを残すテーブルを足す
+        if (oldVersion < 5) {
+            createVisitedParksTable(db)
+            backfillVisitedParks(db)
+        }
         // これ以降にスキーマを変えるときは、ここに if (oldVersion < 5) ... のように移行を足すこと
     }
 
@@ -128,7 +180,7 @@ class Store private constructor(ctx: Context) :
     }
 
     private fun recreate(db: SQLiteDatabase) {
-        for (t in listOf("parks_cache", "notified", "visits", "fixes", "sightings", "rule_alerts", "park_details")) {
+        for (t in listOf("parks_cache", "notified", "visits", "fixes", "sightings", "rule_alerts", "park_details", "visited_parks")) {
             db.execSQL("DROP TABLE IF EXISTS $t")
         }
         onCreate(db)
@@ -188,6 +240,7 @@ class Store private constructor(ctx: Context) :
      * その日まだ入っていない公園なら、通知済みとして記録し、履歴にも追加して true を返す。
      * すでにその日に記録があれば何もせず false。
      * 2つの書き込みを1つのトランザクションで行う（途中で落ちても片方だけ残らない）。
+     * あわせて visited_parks（日記の地図用のジオメトリ）を毎回上書きする。
      */
     fun recordFirstVisitOfDay(park: Park, day: String, enteredAt: Long): Boolean {
         val db = writableDatabase
@@ -208,12 +261,22 @@ class Store private constructor(ctx: Context) :
                 }
                 db.insert("visits", null, v)
             }
+            // 日記の地図用に、入るたびに最新のジオメトリで上書きしておく（その日2回目以降の入園でも更新する）
+            putVisitedPark(db, park, enteredAt)
             db.setTransactionSuccessful()
             return first
         } finally {
             db.endTransaction()
         }
     }
+
+    fun getVisitedPark(parkId: String): VisitedPark? =
+        readableDatabase.rawQuery(
+            "SELECT park_id, name, address, geometry, updated_at FROM visited_parks WHERE park_id = ?",
+            arrayOf(parkId),
+        ).use { c ->
+            if (c.moveToFirst()) VisitedPark(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getLong(4)) else null
+        }
 
     fun queryVisits(from: Long, to: Long): List<Visit> =
         readableDatabase.rawQuery(

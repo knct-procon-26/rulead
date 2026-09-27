@@ -20,6 +20,14 @@ export type NativeParkDetails = {
   fetchedAt: number;
 };
 
+export type NativeVisitedPark = {
+  parkId: string;
+  name: string;
+  address: string;
+  geometryJson: string;
+  updatedAt: number;
+};
+
 declare class ParkTrackerNativeModule extends NativeModule<ParkTrackerEvents> {
   start(options: TrackerOptions): Promise<void>;
   stop(): Promise<void>;
@@ -27,6 +35,8 @@ declare class ParkTrackerNativeModule extends NativeModule<ParkTrackerEvents> {
   isEnabled(): Promise<boolean>;
   getCurrentParks(): Promise<CurrentPark[]>;
   getParkDetails(parkId: string): Promise<NativeParkDetails | null>;
+
+  getVisitedPark?(parkId: string): Promise<NativeVisitedPark | null>;
   refreshParks(): Promise<void>;
   getTrack(from: number, to: number): Promise<TrackPoint[]>;
   clearTrack(before: number): Promise<number>;
