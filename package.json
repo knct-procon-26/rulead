@@ -5,5 +5,8 @@
   "private": true,
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "devDependencies": {
+    "@types/bun": "^1.4.1"
+  }
 }

@@ -4,3 +4,5 @@ dump.sh
 project_dump.txt
 file_structure.txt
 osm-work/
+.expo
+.idea
