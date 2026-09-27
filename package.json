@@ -5,5 +5,8 @@
   "private": true,
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "dependencies": {
+    "react-native-reanimated": "4.5.1"
+  }
 }

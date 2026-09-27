@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { FlatList,Image,StyleSheet,TouchableOpacity} from "react-native";
 
 import EditScreenInfo from "@/components/EditScreenInfo";
 import { Text, View } from "@/components/Themed";
@@ -37,7 +37,6 @@ export default function CollectionTab() {
   const [signCount, setSignCount] = useState<number | null>(null);
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [total, setTotal] = useState<number | null>(null);
-
   useFocusEffect(
     useCallback(() => {
       (async () => {
@@ -68,46 +67,159 @@ export default function CollectionTab() {
       };
     }, []),
   );
-
   return (
     <View style={styles.container}>
       {rules ? (
         <View style={styles.container}>
-          <Text>撮影した看板：{signCount}</Text>
-          <Text>訪れた公園：{"TODO"}</Text>
-          {rules.map((i) => (
-            <View key={i.id} style={styles.rule}>
-              <Icon
-                name={i.iconName}
-                iconType={
-                  i.iconType as "prohibition" | "caution" | "information"
-                }
-              />
-              <Text>
-                {i.textEn} | {i.count} | {i.badge.badgeType}
-              </Text>
-              {total !== null && total !== 0 ? (
-                <Text>{(i.total / total) * 100} %</Text>
-              ) : (
-                <></>
-              )}
-            </View>
-          ))}
+          <View style={styles.up}>
+          <View style={styles.check}>
+          <Text style={styles.font}>撮影した看板</Text>
+          <Text style={styles.font2}>21</Text>
+          <Text style={styles.font3}>個</Text>
+          </View>
+          <View style={styles.check2}>
+          <Text style={styles.font}>訪れた公園</Text>
+          <Text style={styles.font2}>17</Text>
+          <Text style={styles.font3}>箇所</Text>
+          </View>
+          <Text　style={styles.title}>ルール一覧</Text>
+          <View style={styles.line}></View>
         </View>
-      ) : (
-        <Text>読み込み中...</Text>
+        <View style={styles.low}>
+          <FlatList
+        data={rules}
+        renderItem={({item})=>(
+  <View key={item.id} style={styles.rule}>
+  <Icon name={item.iconName} iconType={item.iconType}></Icon>
+  <Text style={styles.text}>{item.textEn}</Text>
+  <Text style={styles.count}>{item.count}コ</Text>
+{item.badge.badgeType === "new"&&<Text style={styles.new}>NEW</Text>}
+{item.badge.badgeType === "+1"&&<Text style={styles.increment}>+1</Text>}
+</View>
+ )}
+        keyExtractor={item => item.id}
+        ItemSeparatorComponent={()=><View style={styles.bar}/>}
+        />
+        </View>
+        </View>
+      ) : ( 
+               <Text>読み込み中...</Text>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  title:{
+  position:"absolute",
+  left:"3%",
+  bottom:0,
+  fontSize:20,
+  fontWeight:"600"
+  },
+  bar:{
+left:"3%",
+height:3,
+width:"94%",
+backgroundColor:"black"
+  },
+   line:{
+    position:"absolute",
+    left:"3%",
+    height:3,
+    width:"94%",
+    bottom:0,
+    backgroundColor:"black"
+  },
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  },
+  low:{
+    backgroundColor:"white",
+    flex:3,
+    flexDirection:"column",
+  },
+  up:{
+    flex:1,
+    backgroundColor:"white"
   },
   rule: {
     flexDirection: "row",
+    left:"3%",
+    width:"94%",  
+    height:50,
+    backgroundColor:"rgba(240, 239, 239, 0.93)"
   },
+  check:{
+    position:"absolute",
+    borderWidth:2,
+    width:"40%",
+    height:"55%",
+    top:"10%",
+    left:"5%",
+    borderRadius:10,
+  },
+  check2:{
+    position:"absolute",
+    borderWidth:2,
+    width:"40%",
+    height:"55%",
+    top:"10%",
+    right:"5%",
+    borderRadius:10
+  },
+  font:{
+    fontSize:17,
+    fontWeight:"600"
+  },
+  font2:{
+    fontSize:40,
+    fontWeight:"600",
+    textAlign:"center"
+  },
+  font3:{
+    position:"absolute",
+    left:"70%",
+    top:"65%"
+  },
+  text:{
+   position:"absolute",
+   fontSize:18,
+   fontWeight:"700",
+   left:"12%",
+   right:"18%",
+   textAlignVertical:"center",
+   height:50
+  },
+  count:{
+   position:"absolute",
+   fontSize:19,
+   fontWeight:"700",
+   left:"83%",
+   top:"25%"
+  },
+  new:{
+   position:"absolute",
+   left:"89%",
+   top:0,
+   fontSize:13,
+   paddingVertical:2,
+   paddingHorizontal:5,
+   color:"white",
+   fontWeight:"700",
+   backgroundColor:"rgb(251, 190, 7)",
+   borderRadius:20
+  },
+  increment:{
+  position:"absolute",
+   left:"89%",
+   top:0,
+   fontSize:13,
+   paddingVertical:1,
+   paddingHorizontal:6,
+   color:"white",
+   fontWeight:"700",
+   backgroundColor:"rgb(44, 188, 0)",
+   borderRadius:20
+  }
 });
