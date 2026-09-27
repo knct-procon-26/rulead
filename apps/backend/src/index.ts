@@ -103,4 +103,5 @@ await ensureCollections(qdrantClient, Object.values(COLLECTIONS));
 export default {
   fetch: app.fetch,
   port: Number(process.env.PORT ?? 3000),
+  idleTimeout: 120,
 };
