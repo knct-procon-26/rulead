@@ -1,28 +1,33 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
 
+const mapsKey = process.env.GOOGLE_MAPS_API_KEY;
+
 module.exports = ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   slug: "rulead",
   name: "rulead",
   android: {
+    ...config.android,
     config: {
-      googleMaps: {
-        apiKey: process.env.GOOGLE_MAPS_API_KEY,
-      },
+      ...config.android?.config,
+      googleMaps: { apiKey: mapsKey },
     },
     package: "club.prolab.rulead",
   },
   ios: {
+    ...config.ios,
     config: {
-      googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+      ...config.ios?.config,
+      googleMapsApiKey: mapsKey,
     },
   },
   plugins: [
+    ...(config.plugins ?? []),
     [
       "react-native-maps",
       {
-        androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
-        iosGoogleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+        androidGoogleMapsApiKey: mapsKey,
+        iosGoogleMapsApiKey: mapsKey,
       },
     ],
     ["expo-secure-store"],
