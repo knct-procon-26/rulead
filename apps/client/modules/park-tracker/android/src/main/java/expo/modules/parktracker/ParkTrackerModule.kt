@@ -154,6 +154,22 @@ class ParkTrackerModule : Module() {
         }
 
         /**
+         * 訪れたことのある公園の名前・住所・ジオメトリ（GeoJSON の Polygon / MultiPolygon の JSON 文字列）。日記の地図用。
+         * park_details と違い7日で消えない。記録が無ければ null。
+         */
+        AsyncFunction("getVisitedPark") { parkId: String ->
+            Store.get(context).getVisitedPark(parkId)?.let { p ->
+                mapOf(
+                    "parkId" to p.parkId,
+                    "name" to p.name,
+                    "address" to p.address,
+                    "geometryJson" to p.geometryJson,
+                    "updatedAt" to p.updatedAt.toDouble(),
+                )
+            }
+        }
+
+        /**
          * まわりの公園とルールを、次に位置を取得したときにサーバーから取り直させる（看板を登録した直後などに呼ぶ）。
          * 送るのはいつもと同じ約1kmセルの中心だけ。記録が止まっていれば、次に開始したときに取得される。
          */

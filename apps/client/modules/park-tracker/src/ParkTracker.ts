@@ -14,6 +14,9 @@ import type {
   TrackPoint,
   TrackerOptions,
   Visit,
+  VisitedPark,
+  GeoPoint,
+  ParkPolygon,
 } from "./ParkTracker.types";
 import Native from "./ParkTrackerModule";
 
@@ -233,6 +236,76 @@ export async function getParkDetails(
     address: d.address,
     rules: parseRules(d.rulesJson),
     fetchedAt: d.fetchedAt,
+  };
+}
+
+function parseRing(ring: unknown): GeoPoint[] | null {
+  if (!Array.isArray(ring)) return null;
+  const out: GeoPoint[] = [];
+  for (const pt of ring) {
+    if (!Array.isArray(pt) || pt.length < 2) continue;
+    const [lng, lat] = pt;
+    if (
+      typeof lng !== "number" ||
+      typeof lat !== "number" ||
+      !Number.isFinite(lng) ||
+      !Number.isFinite(lat) ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lng) > 180
+    )
+      continue;
+    out.push({ latitude: lat, longitude: lng });
+  }
+  return out.length >= 3 ? out : null;
+}
+
+function parsePolygonCoords(rings: unknown): ParkPolygon | null {
+  if (!Array.isArray(rings) || rings.length === 0) return null;
+  const outer = parseRing(rings[0]);
+  if (!outer) return null;
+  const holes: GeoPoint[][] = [];
+  for (let i = 1; i < rings.length; i++) {
+    const h = parseRing(rings[i]);
+    if (h) holes.push(h);
+  }
+  return { outer, holes };
+}
+
+export function parseGeometry(json: string): ParkPolygon[] {
+  let g: unknown;
+  try {
+    g = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  if (!isObj(g) || !Array.isArray(g.coordinates)) return [];
+  if (g.type === "Polygon") {
+    const p = parsePolygonCoords(g.coordinates);
+    return p ? [p] : [];
+  }
+  if (g.type === "MultiPolygon") {
+    const out: ParkPolygon[] = [];
+    for (const rings of g.coordinates) {
+      const p = parsePolygonCoords(rings);
+      if (p) out.push(p);
+    }
+    return out;
+  }
+  return [];
+}
+
+export async function getVisitedPark(
+  parkId: string,
+): Promise<VisitedPark | null> {
+  if (!Native || typeof Native.getVisitedPark !== "function") return null;
+  const p = await Native.getVisitedPark(String(parkId));
+  if (!p) return null;
+  return {
+    parkId: p.parkId,
+    name: p.name,
+    address: p.address,
+    polygons: parseGeometry(p.geometryJson),
+    updatedAt: p.updatedAt,
   };
 }
 

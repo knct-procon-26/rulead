@@ -54,6 +54,18 @@ export type ParkDetails = {
   fetchedAt: number;
 };
 
+export type GeoPoint = { latitude: number; longitude: number };
+
+export type ParkPolygon = { outer: GeoPoint[]; holes: GeoPoint[][] };
+
+export type VisitedPark = {
+  parkId: string;
+  name: string;
+  address: string;
+  polygons: ParkPolygon[];
+  updatedAt: number;
+};
+
 export type WatchKeyword = { index: number; label: string };
 
 export type WatchRule = { id: string; text: string; keywords: WatchKeyword[] };
