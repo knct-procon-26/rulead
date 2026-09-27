@@ -12,7 +12,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import { rarityOf } from "./lib/rarity";
+import { rarityOf, referenceTotal } from "./lib/rarity";
 
 const app = new Hono<AuthContext>();
 
@@ -60,7 +60,15 @@ const collection = app.get("/", async (c) => {
     })
     .from(collections)
     .where(gt(collections.count, 0));
-  const allTotal = total ?? 0;
+  const dist = await db.execute<{ sq: number | string; s: number | string }>(
+    sql`SELECT coalesce(sum(t * t), 0)::float8 AS sq, coalesce(sum(t), 0)::float8 AS s
+        FROM (SELECT sum(${collections.count})::float8 AS t FROM ${collections}
+              WHERE ${collections.count} > 0 GROUP BY ${collections.ruleId}) AS per_rule`,
+  );
+  const typical = referenceTotal(
+    Number(dist.rows[0]?.sq ?? 0),
+    Number(dist.rows[0]?.s ?? 0),
+  );
 
   return c.json(
     {
@@ -71,7 +79,7 @@ const collection = app.get("/", async (c) => {
         return {
           ...i,
           total: ruleTotal,
-          rarity: rarityOf(ruleTotal, allTotal, kinds),
+          rarity: rarityOf(ruleTotal, typical),
         };
       }),
       total,

@@ -1,7 +1,5 @@
 import { Hono } from "hono";
 import scan from "./scan";
-import test from "./test";
-import { serve } from "bun";
 import { qdrantClient } from "./lib/qdrantClient";
 import { COLLECTIONS, ensureCollections } from "./lib/qdrantSetup";
 import { AuthContext, requireAuth } from "./auth";
@@ -14,6 +12,17 @@ import translateRule from "./translateRules";
 import report from "./report";
 import parksRoute from "./parksNearby";
 import areasRoute from "./areas";
+import {
+  DAILY_API_LIMIT,
+  DEBUG_API_ENABLED,
+  getApiUsage,
+  rateLimit,
+  resetApiUsage,
+} from "./lib/rateLimit";
+import { db } from "./db/client";
+import { users } from "./db/schema";
+import { eq } from "drizzle-orm";
+import { deleteAccount } from "./lib/account";
 
 const authRoutes = new Hono().route("/register", register);
 
@@ -26,9 +35,38 @@ function pgCode(err: unknown) {
 
 const apiRoutes = new Hono<AuthContext>()
   .use(requireAuth)
-  .get("/me", (c) => c.json({ userId: c.var.userId }))
+  .use(rateLimit)
+  .get("/me", async (c) => {
+    const userId = c.var.userId;
+    const [user] = await db
+      .select({ signCount: users.signCount, createdAt: users.createdAt })
+      .from(users)
+      .where(eq(users.id, userId));
+    return c.json(
+      {
+        userId,
+        signCount: user?.signCount ?? 0,
+        createdAt: user?.createdAt.toISOString() ?? null,
+        apiUsedToday: await getApiUsage(userId),
+        apiDailyLimit: DAILY_API_LIMIT,
+        debugApi: DEBUG_API_ENABLED,
+      },
+      200,
+    );
+  })
+  .delete("/me", async (c) => {
+    await deleteAccount(c.var.userId);
+    return c.json({ success: true }, 200);
+  })
+  // 開発用：今日の API 使用量を 0 に戻す
+  .post("/debug/reset-api-count", async (c) => {
+    if (!DEBUG_API_ENABLED) {
+      throw new HTTPException(404, { message: "Not Found" });
+    }
+    await resetApiUsage(c.var.userId);
+    return c.json({ success: true }, 200);
+  })
   .route("/scan", scan)
-  .route("/test", test)
   .route("/rules", rulesApi)
   .route("/collection", collection)
   .route("/translate", translateRule)

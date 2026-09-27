@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 import Colors from "@/constants/Colors";
 import type { ScannedRule } from "@/components/rules/types";
 import * as ParkTracker from "@/modules/park-tracker";
+import BonusModal, { type Bonus } from "@/components/scan/BonusModal";
 
 type ScanState = "camera" | "map" | "confirm";
 
@@ -17,6 +18,7 @@ export default function ScanTab() {
   const [scanState, setScanState] = useState<ScanState>("camera");
   const [rules, setRules] = useState<ScannedRule[] | null>(null);
   const [area, setArea] = useState<Area | null>(null);
+  const [bonus, setBonus] = useState<Bonus | null>(null);
   const router = useRouter();
   const scanIdRef = useRef(0);
   const submittingRef = useRef(false);
@@ -25,7 +27,13 @@ export default function ScanTab() {
     scanIdRef.current++;
     setRules(null);
     setArea(null);
+    setBonus(null);
     setScanState("camera");
+  };
+
+  const finish = async () => {
+    router.navigate("/(tabs)/collection");
+    await end();
   };
 
   const end = async (message?: string) => {
@@ -85,9 +93,13 @@ export default function ScanTab() {
         },
       });
       if (res.ok) {
+        const data = await res.json();
         ParkTracker.refreshParks().catch(() => {});
-        router.navigate("/(tabs)/collection");
-        await end();
+        if (data.bonus) {
+          setBonus(data.bonus);
+        } else {
+          await finish();
+        }
       } else {
         const err = await res.json();
         await end(err.error);
@@ -107,6 +119,15 @@ export default function ScanTab() {
       )}
       {scanState === "confirm" && (
         <Confirm rules={rules} area={area} onConfirm={onConfirm} end={end} />
+      )}
+      {bonus !== null && (
+        <BonusModal
+          bonus={bonus}
+          onDone={() => {
+            setBonus(null);
+            finish();
+          }}
+        />
       )}
     </View>
   );

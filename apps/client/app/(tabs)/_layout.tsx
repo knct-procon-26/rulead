@@ -2,16 +2,21 @@ import { SymbolView } from "expo-symbols";
 import { Tabs } from "expo-router";
 
 import Colors from "@/constants/Colors";
-import { useClientOnlyValue } from "@/components/useClientOnlyValue";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.tint,
         // Disable the static render of the header on web
         // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
+        headerShown: false,
+        sceneStyle: {
+          paddingTop: insets.top,
+          backgroundColor: Colors.background,
+        },
       }}
     >
       <Tabs.Screen

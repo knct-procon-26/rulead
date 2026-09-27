@@ -83,8 +83,9 @@ class RuleWatchService : LifecycleService() {
 
         // ---- 判定 ----
         private const val RECORD_MIN_CONFIDENCE = 0.6f     // 記録するラベルの確信度の下限（ML Kit にもこの値を渡す）
-        private const val ALERT_MIN_CONFIDENCE = 0.7f      // ルール通知に使うラベルの確信度の下限
-        private const val CONFIRM_WINDOW_MS = 25_000L      // 誤検出を減らすため、この時間内に2回見えたら通知する（10秒間隔で続けて2回）
+        private const val ALERT_MIN_CONFIDENCE = 0.65f     // ルール通知に使うラベルの確信度の下限
+        private const val INSTANT_ALERT_CONFIDENCE = 0.8f  // これ以上はっきり見えたら1回で通知する（それ未満は2回見えたら）
+        private const val CONFIRM_WINDOW_MS = 35_000L      // この時間内に2回見えたら通知する（10秒間隔で、間に1回見逃しても2回と数える）
         private const val ALERT_COOLDOWN_MS = 30L * 60 * 1000 // 同じ公園の同じルールを再通知するまでの間隔
         private const val DEBUG_MAX_DURATION_MS = 30L * 60 * 1000 // 開発用モードはこの時間で自動停止
         private val TARGET_SIZE = Size(640, 480)            // ラベリングには十分。大きくすると電池を食う
@@ -562,8 +563,11 @@ class RuleWatchService : LifecycleService() {
                 .filter { it.confidence >= ALERT_MIN_CONFIDENCE && rule.matches(it.index, it.text) }
                 .maxByOrNull { it.confidence } ?: continue
             val previousHit = lastHitAt.put(rule.id, elapsed)
-            // 1回だけの誤検出で通知しないよう、CONFIRM_WINDOW_MS 以内に2回見えたときだけ進む
-            if (previousHit == null || elapsed - previousHit > CONFIRM_WINDOW_MS) continue
+            // はっきり見えたら1回で通知する。そうでなければ、1回だけの誤検出で通知しないよう
+            // CONFIRM_WINDOW_MS 以内に2回見えたときだけ進む
+            val confirmed = hit.confidence >= INSTANT_ALERT_CONFIDENCE ||
+                (previousHit != null && elapsed - previousHit <= CONFIRM_WINDOW_MS)
+            if (!confirmed) continue
             // 再通知の間隔は DB で管理する（見守りを開始し直しても連続で通知しない）
             val lastAlert = store.lastRuleAlertAt(cfg.parkId, rule.id)
             if (lastAlert != null && abs(now - lastAlert) < ALERT_COOLDOWN_MS) continue
@@ -654,12 +658,17 @@ class RuleWatchService : LifecycleService() {
         val nm = NotificationManagerCompat.from(this)
         if (!nm.areNotificationsEnabled()) return // Android 13+ で通知が許可されていない
         val title = "${cfg.displayName}のルールに注意"
-        val body = "${rule.text}\n「$label」が映りました・タップで詳細"
-        val n = NotificationCompat.Builder(this, CH_ALERT)
+        // 本文は外出を始めたときに選んでいた言語の翻訳（無ければ英語の原文）
+        val text = rule.displayText
+        val body = "$text\n「$label」が映りました・タップで詳細"
+        val builder = NotificationCompat.Builder(this, CH_ALERT)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(title)
-            .setContentText(rule.text.ifEmpty { "「$label」が映りました" })
+            .setContentText(text.ifEmpty { "「$label」が映りました" })
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        // ルールのピクトグラムを大きいアイコンに（描けなければ付けない）
+        RuleIconBitmap.forRule(this, rule)?.let { builder.setLargeIcon(it) }
+        val n = builder
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

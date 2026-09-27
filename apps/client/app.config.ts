@@ -1,7 +1,5 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
 
-console.log(process.env);
-
 module.exports = ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   slug: "rulead",

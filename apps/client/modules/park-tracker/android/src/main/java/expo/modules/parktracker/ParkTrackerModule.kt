@@ -214,6 +214,14 @@ class ParkTrackerModule : Module() {
             Store.get(context).deleteVisitsBefore(before.toLong())
         }
 
+        /**
+         * 開発用：今日の入園通知を「まだ出していない」状態に戻す（公園を出て入り直すと、また通知される）。
+         * 消した件数を返す。
+         */
+        AsyncFunction("resetEnterNotifications") {
+            Store.get(context).deleteNotifiedOn(Store.dayOf(System.currentTimeMillis()))
+        }
+
         /** 電池の最適化の設定画面を開く（メーカーの省電力でサービスが止められる対策の案内用） */
         AsyncFunction("openBatterySettings") {
             val i = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

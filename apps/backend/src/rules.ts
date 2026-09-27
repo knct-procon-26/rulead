@@ -3,15 +3,24 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import { db } from "./db/client";
-import { collections, parkRules, parks, users } from "./db/schema";
+import { collections, parkRules, parks, ruleVotes, users } from "./db/schema";
 import { AuthContext } from "./auth";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Polygon } from "geojson";
+import {
+  castVotes,
+  FULL_WEIGHT,
+  reevaluateParkRule,
+  reevaluateParkRules,
+  tallyVotes,
+} from "./lib/ruleVotes";
+import { pickBonus, type Bonus } from "./lib/bonus";
 
 const MAX_GEOMETRY_POINTS = 20_000;
 const MAX_PARK_AREA_M2 = 5_000_000;
 const SAME_PARK_IOU = 0.8;
 const PARK_CREATE_LOCK_KEY = 73_110_001;
+const SUGGEST_ACCEPT_WEIGHT = FULL_WEIGHT;
 
 const app = new Hono<AuthContext>();
 
@@ -28,6 +37,12 @@ const extractRulesSchema = z.object({
     geometry: z.array(pointSchema).min(3).max(MAX_GEOMETRY_POINTS),
   }),
   ruleIds: z.array(z.uuid()).min(1),
+});
+
+const voteSchema = z.object({
+  parkId: z.number().int().positive(),
+  ruleId: z.uuid(),
+  exists: z.boolean(),
 });
 
 type ParkInput = z.infer<typeof extractRulesSchema>["park"];
@@ -122,10 +137,8 @@ async function findOrCreatePark(
   return inserted.id;
 }
 
-const rulesApi = app.post(
-  "/",
-  zValidator("json", extractRulesSchema),
-  async (c) => {
+const rulesApi = app
+  .post("/", zValidator("json", extractRulesSchema), async (c) => {
     const data = c.req.valid("json");
     const userId = c.var.userId;
 
@@ -171,11 +184,82 @@ const rulesApi = app.post(
         .set({ signCount: sql`${users.signCount} + 1` })
         .where(eq(users.id, userId));
 
+      await castVotes(tx, userId, parkId, ruleIds, true, "scan");
+      await reevaluateParkRules(tx, parkId, ruleIds);
+
       return { parkId, ruleIds };
     });
 
-    return c.json(result, 201);
-  },
-);
+    let bonus: Bonus | null = null;
+    try {
+      bonus = await pickBonus(userId, result.parkId);
+    } catch (e) {
+      console.error("pickBonus failed", e);
+    }
+
+    return c.json({ ...result, bonus }, 201);
+  })
+  .post("/vote", zValidator("json", voteSchema), async (c) => {
+    const { parkId, ruleId, exists } = c.req.valid("json");
+    const userId = c.var.userId;
+
+    const result = await db.transaction(async (tx) => {
+      const [answered] = await tx
+        .update(ruleVotes)
+        .set({ vote: exists, updatedAt: new Date() })
+        .where(
+          and(
+            eq(ruleVotes.parkId, parkId),
+            eq(ruleVotes.ruleId, ruleId),
+            eq(ruleVotes.userId, userId),
+            isNull(ruleVotes.vote),
+            inArray(ruleVotes.source, ["verify", "suggest"]),
+          ),
+        )
+        .returning({ source: ruleVotes.source });
+      if (!answered) {
+        throw new HTTPException(409, {
+          message: "この回答は受け付けられませんでした",
+        });
+      }
+
+      if (exists) {
+        await tx
+          .insert(collections)
+          .values({ userId, ruleId, count: 1, lastCollectedAt: new Date() })
+          .onConflictDoUpdate({
+            target: [collections.userId, collections.ruleId],
+            set: {
+              count: sql`${collections.count} + 1`,
+              lastCollectedAt: new Date(),
+            },
+          });
+
+        if (answered.source === "suggest") {
+          const t = await tallyVotes(tx, parkId, ruleId, null, "suggest");
+          if (t.yes >= SUGGEST_ACCEPT_WEIGHT && t.yes > t.no) {
+            const [park] = await tx
+              .select({ id: parks.id })
+              .from(parks)
+              .where(and(eq(parks.id, parkId), isNull(parks.deletedAt)))
+              .limit(1);
+            if (park) {
+              await tx
+                .insert(parkRules)
+                .values({ parkId, ruleId, createdBy: userId })
+                .onConflictDoNothing({
+                  target: [parkRules.parkId, parkRules.ruleId],
+                });
+            }
+          }
+        }
+      }
+
+      await reevaluateParkRule(tx, parkId, ruleId);
+      return { collected: exists };
+    });
+
+    return c.json({ success: true, collected: result.collected }, 200);
+  });
 
 export default rulesApi;

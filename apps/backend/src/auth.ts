@@ -41,8 +41,11 @@ export const requireAuth = createMiddleware<AuthContext>(async (c, next) => {
       and(eq(users.tokenHash, await hashToken(token)), isNull(users.deletedAt)),
     );
 
-  if (!user || user.blockedAt) {
+  if (!user) {
     return c.json({ error: "Unauthorized" }, 401);
+  }
+  if (user.blockedAt) {
+    return c.json({ error: "このアカウントは利用が停止されています" }, 403);
   }
   c.set("userId", user.id);
   await next();

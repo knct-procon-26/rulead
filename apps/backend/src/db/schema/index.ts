@@ -11,3 +11,4 @@ export * from "./reports";
 export * from "./keywords";
 export * from "./ruleKeywords";
 export * from "./osmAreas";
+export * from "./ruleVotes";

@@ -175,7 +175,7 @@ export function getCurrentParks(): Promise<CurrentPark[]> {
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-function parseRules(json: string): ParkRule[] {
+export function parseRules(json: string): ParkRule[] {
   let data: unknown;
   try {
     data = JSON.parse(json);
@@ -307,6 +307,16 @@ export async function getVisitedPark(
     polygons: parseGeometry(p.geometryJson),
     updatedAt: p.updatedAt,
   };
+}
+
+export function resetEnterNotifications(): Promise<number> {
+  const n = native();
+  if (typeof n.resetEnterNotifications !== "function") {
+    return Promise.reject(
+      new Error("このビルドは入園通知のリセットに対応していません"),
+    );
+  }
+  return n.resetEnterNotifications();
 }
 
 export function refreshParks(): Promise<void> {

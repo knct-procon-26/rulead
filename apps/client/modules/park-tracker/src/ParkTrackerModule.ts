@@ -42,6 +42,7 @@ declare class ParkTrackerNativeModule extends NativeModule<ParkTrackerEvents> {
   clearTrack(before: number): Promise<number>;
   getVisits(from: number, to: number): Promise<Visit[]>;
   clearVisits(before: number): Promise<number>;
+  resetEnterNotifications?(): Promise<number>;
   openBatterySettings(): Promise<void>;
 
   getOutingStatus(): Promise<OutingStatus>;

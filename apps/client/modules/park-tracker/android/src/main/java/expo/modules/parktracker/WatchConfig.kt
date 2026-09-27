@@ -2,6 +2,7 @@ package expo.modules.parktracker
 
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.random.Random
 
 /**
  * カメラでの見守り（RuleWatchService）で照合する、1つの公園のルール。
@@ -14,11 +15,26 @@ import org.json.JSONObject
  */
 data class WatchKeyword(val index: Int, val label: String)
 
-data class WatchRule(val id: String, val text: String, val keywords: List<WatchKeyword>) {
+/**
+ * text: 英語の原文 / localText: サーバーが翻訳した文（外出開始時に選んでいた言語。無ければ ""）
+ * iconName / iconType / iconCode: ピクトグラム（iconCode は MaterialDesignIcons のコードポイント。無ければ -1）
+ */
+data class WatchRule(
+    val id: String,
+    val text: String,
+    val keywords: List<WatchKeyword>,
+    val localText: String = "",
+    val iconName: String = "",
+    val iconType: String = "",
+    val iconCode: Int = -1,
+) {
     fun matches(labelIndex: Int, labelText: String): Boolean = keywords.any { k ->
         (k.index >= 0 && k.index == labelIndex) ||
             (k.label.isNotEmpty() && k.label.equals(labelText, ignoreCase = true))
     }
+
+    /** 通知に出す文（翻訳があれば翻訳、無ければ英語の原文） */
+    val displayText: String get() = localText.ifEmpty { text }
 }
 
 data class WatchConfig(
@@ -36,6 +52,10 @@ data class WatchConfig(
                 put(JSONObject().apply {
                     put("id", r.id)
                     put("text", r.text)
+                    put("textLocal", r.localText)
+                    put("iconName", r.iconName)
+                    put("iconType", r.iconType)
+                    put("iconCode", r.iconCode)
                     put("keywords", JSONArray().apply {
                         for (k in r.keywords) {
                             put(JSONObject().apply {
@@ -80,9 +100,41 @@ data class WatchConfig(
                         if (index >= 0 || label.isNotEmpty()) keywords += WatchKeyword(index, label)
                     }
                 }
-                rules += WatchRule(id, str(r, "text"), keywords)
+                rules += WatchRule(
+                    id = id,
+                    text = str(r, "text"),
+                    keywords = keywords,
+                    localText = str(r, "textLocal"),
+                    iconName = str(r, "iconName"),
+                    iconType = str(r, "iconType"),
+                    iconCode = r.optInt("iconCode", -1),
+                )
             }
             return rules
+        }
+
+        /** 端末に保存してある公園のルール（サーバーの JSON）を読む。壊れていれば空 */
+        fun parseRulesOrEmpty(rulesJson: String): List<WatchRule> =
+            try {
+                parseRules(JSONArray(rulesJson))
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+        /**
+         * 公園に入ったときの通知に1件だけ載せるルール。
+         * 禁止 → 注意 → 案内 の順に、いちばん優先度の高い種類の中からランダムに1件選ぶ。
+         * 本文が空のものは選ばない。ルールが無ければ null。
+         */
+        fun pickFeatured(rules: List<WatchRule>, random: Random = Random.Default): WatchRule? {
+            fun rank(r: WatchRule) = when (r.iconType) {
+                "prohibition" -> 0
+                "caution" -> 1
+                else -> 2
+            }
+            val candidates = rules.filter { it.displayText.isNotBlank() }
+            val best = candidates.minOfOrNull { rank(it) } ?: return null
+            return candidates.filter { rank(it) == best }.random(random)
         }
 
         /** null / JSONObject.NULL / 文字列以外は "" として扱う（optString は null を "null" にしてしまうため） */

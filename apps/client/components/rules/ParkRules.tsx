@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,7 +22,13 @@ type Props = {
   emptyText?: string;
   footer?: ReactNode;
   highlightRuleId?: string;
+  onReportRule?: (rule: DisplayRule, text: string) => void;
+  onReportPark?: () => void;
+  showDisclaimer?: boolean;
 };
+
+export const RULES_DISCLAIMER =
+  "※ ここに載っているのは、看板などから登録されたルールの一部です。載っていないことでも、してよいとは限りません。現地の看板・管理者の指示や、まわりの人への配慮を優先してください。";
 
 export function ParkRules({
   park,
@@ -30,6 +37,9 @@ export function ParkRules({
   emptyText = "ルールがありません",
   footer,
   highlightRuleId,
+  onReportRule,
+  onReportPark,
+  showDisclaimer = true,
 }: Props) {
   const [language, setLanguage] = useLanguage();
   const { textOf, status } = useTranslatedTexts(rules ?? [], language);
@@ -39,6 +49,19 @@ export function ParkRules({
       <View style={styles.header}>
         <ParkHeader name={park?.name ?? ""} address={park?.address ?? ""} />
         <View style={styles.toolbar}>
+          {onReportPark ? (
+            <Pressable
+              onPress={onReportPark}
+              accessibilityRole="button"
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.reportPark,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.reportText}>公園を報告</Text>
+            </Pressable>
+          ) : null}
           {status === "loading" ? (
             <ActivityIndicator size="small" color={Colors.mutedText} />
           ) : null}
@@ -65,22 +88,44 @@ export function ParkRules({
           style={styles.list}
           contentContainerStyle={styles.listContent}
         >
-          {rules.map((rule) => (
-            <RuleRow
-              key={rule.id}
-              iconName={rule.iconName}
-              iconType={rule.iconType}
-              title={textOf(rule)}
-              subtitle={
-                rule.keywords && rule.keywords.length > 0
-                  ? `Keyword: ${rule.keywords.join(", ")}`
-                  : undefined
-              }
-              highlighted={
-                highlightRuleId !== undefined && rule.id === highlightRuleId
-              }
-            />
-          ))}
+          {rules.map((rule) => {
+            const text = textOf(rule);
+            return (
+              <RuleRow
+                key={rule.id}
+                iconName={rule.iconName}
+                iconType={rule.iconType}
+                title={text}
+                subtitle={
+                  rule.keywords && rule.keywords.length > 0
+                    ? `Keyword: ${rule.keywords.join(", ")}`
+                    : undefined
+                }
+                highlighted={
+                  highlightRuleId !== undefined && rule.id === highlightRuleId
+                }
+                right={
+                  onReportRule ? (
+                    <Pressable
+                      onPress={() => onReportRule(rule, text)}
+                      accessibilityRole="button"
+                      accessibilityLabel="このルールを報告"
+                      hitSlop={8}
+                      style={({ pressed }) => [
+                        styles.reportRule,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.reportText}>報告</Text>
+                    </Pressable>
+                  ) : undefined
+                }
+              />
+            );
+          })}
+          {showDisclaimer ? (
+            <Text style={styles.disclaimer}>{RULES_DISCLAIMER}</Text>
+          ) : null}
         </ScrollView>
       )}
 
@@ -128,6 +173,29 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.subText,
     textAlign: "center",
+  },
+  reportPark: {
+    marginRight: "auto",
+    paddingVertical: 4,
+  },
+  reportRule: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  reportText: {
+    fontSize: 12,
+    color: Colors.mutedText,
+    textDecorationLine: "underline",
+  },
+  pressed: {
+    opacity: 0.5,
+  },
+  disclaimer: {
+    marginTop: 16,
+    fontSize: 11,
+    lineHeight: 16,
+    color: Colors.mutedText,
+    opacity: 0.8,
   },
   footer: {
     paddingHorizontal: 20,

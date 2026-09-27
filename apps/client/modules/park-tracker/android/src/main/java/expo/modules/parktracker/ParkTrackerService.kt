@@ -47,7 +47,8 @@ class ParkTrackerService : Service() {
         const val EXTRA_CONFIG = "config"
 
         // ---- 取得間隔 ----
-        const val SLOW_INTERVAL_MS = 60_000L        // 公園の外
+        const val OUTSIDE_INTERVAL_MS = 30_000L     // 公園の外（入園にすぐ気づけるよう30秒ごと）
+        const val SLOW_INTERVAL_MS = 60_000L        // 公園の中で止まっているときの上限
         const val FAST_INTERVAL_MS = 10_000L        // 公園の中（動いているとき）
         private const val BACKOFF_FACTOR = 1.5      // 公園の中で止まっているとき、1回ごとに間隔をこの倍率で延ばす（上限は SLOW）
         private const val STILL_FIXES_BEFORE_BACKOFF = 3 // 何回続けて「動いていない」なら延ばし始めるか
@@ -200,7 +201,7 @@ class ParkTrackerService : Service() {
             outing = Outing.load(this)
             returnCount = 0
             // 2回目以降の start（すでに動いている）なら今の間隔を維持する
-            if (currentIntervalMs == 0L) setInterval(SLOW_INTERVAL_MS)
+            if (currentIntervalMs == 0L) setInterval(OUTSIDE_INTERVAL_MS)
         }
         return START_STICKY
     }
@@ -294,8 +295,8 @@ class ParkTrackerService : Service() {
         // 3. 公園の中にいる間は、精度のよい位置をローカルに記録（生の位置）
         if (accurate && inside.isNotEmpty()) store.insertFix(loc, inside.keys)
 
-        // 4. 取得間隔を切り替え（外 = 60秒 / 中 = 10秒〜60秒）
-        setInterval(if (inside.isEmpty()) SLOW_INTERVAL_MS else inParkIntervalMs)
+        // 4. 取得間隔を切り替え（外 = 30秒 / 中 = 10秒〜60秒）
+        setInterval(if (inside.isEmpty()) OUTSIDE_INTERVAL_MS else inParkIntervalMs)
 
         // 5. いま中にいる公園を JS / カメラの見守りから読めるようにする（名前の更新も反映される）
         publishInside()
@@ -567,10 +568,21 @@ class ParkTrackerService : Service() {
     private fun notifyEnter(park: Park) {
         val nm = NotificationManagerCompat.from(this)
         if (!nm.areNotificationsEnabled()) return // Android 13+ で通知が許可されていない
-        val n = NotificationCompat.Builder(this, CH_ENTER)
+        // この公園のルールから、いちばん伝えたい1件（禁止 → 注意 → 案内の順）を本文に載せる
+        val featured = WatchConfig.pickFeatured(WatchConfig.parseRulesOrEmpty(park.rulesJson))
+        val builder = NotificationCompat.Builder(this, CH_ENTER)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle("${park.displayName}に入りました")
-            .setContentText("タップしてルールを確認")
+        if (featured != null) {
+            val text = featured.displayText
+            builder
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText("$text\nタップしてほかのルールも確認"))
+            RuleIconBitmap.forRule(this, featured)?.let { builder.setLargeIcon(it) }
+        } else {
+            builder.setContentText("タップしてルールを確認")
+        }
+        val n = builder
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             // タップで Rules タブ（この公園）を開く

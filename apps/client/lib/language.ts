@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import * as SecureStore from "expo-secure-store";
 
 export const LANGUAGES = [
   { code: "ja", label: "日本語", english: "Japanese" },
@@ -84,14 +85,41 @@ function detectLanguage(): LanguageCode {
   }
 }
 
+const STORAGE_KEY = "language";
+
 let current: LanguageCode = detectLanguage();
 const listeners = new Set<() => void>();
 
-export function setLanguage(code: LanguageCode) {
+let chosenBeforeLoad = false;
+
+function apply(code: LanguageCode) {
   if (code === current) return;
   current = code;
   listeners.forEach((l) => l());
 }
+
+export function setLanguage(code: LanguageCode) {
+  chosenBeforeLoad = true;
+  apply(code);
+  SecureStore.setItemAsync(STORAGE_KEY, code).catch((e) => console.warn(e));
+}
+
+export function getLanguage(): LanguageCode {
+  return current;
+}
+
+export function onLanguageChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+SecureStore.getItemAsync(STORAGE_KEY)
+  .then((saved) => {
+    if (!chosenBeforeLoad && saved && isLanguageCode(saved)) apply(saved);
+  })
+  .catch((e) => console.warn(e));
 
 function subscribe(listener: () => void) {
   listeners.add(listener);

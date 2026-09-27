@@ -1,15 +1,21 @@
 import { Alert } from "react-native";
 import * as ParkTracker from "@/modules/park-tracker";
 import Debug from "@/constants/Debug";
-import { getToken } from "@/lib/client";
+import { api, getToken, onTokenChange } from "@/lib/client";
+import { getLanguage, onLanguageChange } from "@/lib/language";
+import { getCameraWatchEnabled } from "@/lib/settings";
 
 const API_URL = `${Debug.apiBaseUrl}/api/parks/nearby`;
+
+function nearbyUrl(): string {
+  return `${API_URL}?lang=${encodeURIComponent(getLanguage())}`;
+}
 
 export async function trackerOptions(
   outing = false,
 ): Promise<ParkTracker.TrackerOptions> {
   return {
-    apiUrl: API_URL,
+    apiUrl: nearbyUrl(),
     headers: { Authorization: `Bearer ${await getToken()}` },
     outing,
   };
@@ -41,7 +47,10 @@ export async function startOuting(): Promise<boolean> {
     );
     return false;
   }
-  const camera = await ParkTracker.requestCameraPermission();
+  const wantCamera = await getCameraWatchEnabled();
+  const camera = wantCamera
+    ? await ParkTracker.requestCameraPermission()
+    : false;
 
   await ParkTracker.start(await trackerOptions(true));
 
@@ -56,7 +65,7 @@ export async function startOuting(): Promise<boolean> {
   }
 
   const notes: string[] = [];
-  if (!cameraStarted) {
+  if (wantCamera && !cameraStarted) {
     notes.push(
       camera
         ? "カメラを起動できなかったため、カメラでの見守りなしで外出します。アプリを開き直すと再試行します。"
@@ -86,9 +95,21 @@ export async function endOuting(): Promise<void> {
   }
   await ParkTracker.stop();
 }
+let tokenChecked = false;
+async function checkTokenOnce(): Promise<void> {
+  if (tokenChecked) return;
+  tokenChecked = true;
+  try {
+    await api.api.me.$get();
+  } catch (e) {
+    tokenChecked = false;
+    console.warn(e);
+  }
+}
 
 export async function ensureOuting(): Promise<void> {
   try {
+    if (await ParkTracker.isEnabled()) await checkTokenOnce();
     await ParkTracker.ensureRunning(await trackerOptions());
   } catch (e) {
     console.warn(e);
@@ -99,9 +120,44 @@ export async function ensureOuting(): Promise<void> {
     if (!outing.active || !(await ParkTracker.isRunning())) return;
     const watch = await ParkTracker.getRuleWatchStatus();
     if (watch.running) return;
+    if (!(await getCameraWatchEnabled())) return;
     if (!(await ParkTracker.hasCameraPermission())) return;
     await ParkTracker.startRuleWatch();
   } catch (e) {
     console.warn(e);
   }
 }
+
+export async function applyCameraWatchSetting(
+  enabled: boolean,
+): Promise<boolean> {
+  if (!enabled) {
+    await ParkTracker.stopRuleWatch().catch((e) => console.warn(e));
+    return true;
+  }
+  const outing = await ParkTracker.getOutingStatus();
+  if (!outing.active || !(await ParkTracker.isRunning())) return true;
+  if ((await ParkTracker.getRuleWatchStatus()).running) return true;
+  if (!(await ParkTracker.requestCameraPermission())) return false;
+  await ParkTracker.startRuleWatch();
+  return true;
+}
+
+async function syncTrackerConfig(): Promise<void> {
+  try {
+    if (!(await ParkTracker.isEnabled())) return;
+    if (await ParkTracker.isRunning()) {
+      await ParkTracker.start(await trackerOptions());
+    }
+    await ParkTracker.refreshParks();
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+let configSync: Promise<void> = Promise.resolve();
+function queueConfigSync() {
+  configSync = configSync.then(syncTrackerConfig);
+}
+onLanguageChange(queueConfigSync);
+onTokenChange(queueConfigSync);

@@ -252,7 +252,12 @@ class Store private constructor(ctx: Context) :
                 put("at", enteredAt)
             }
             val first = db.insertWithOnConflict("notified", null, n, SQLiteDatabase.CONFLICT_IGNORE) != -1L
-            if (first) {
+            // 開発用の通知リセット（resetEnterNotifications）の後でも、その日の履歴が2件にならないようにする
+            val visited = first && db.rawQuery(
+                "SELECT 1 FROM visits WHERE park_id = ? AND day = ? LIMIT 1",
+                arrayOf(park.id, day),
+            ).use { it.moveToFirst() }
+            if (first && !visited) {
                 val v = ContentValues().apply {
                     put("park_id", park.id)
                     put("name", park.name)
@@ -287,6 +292,13 @@ class Store private constructor(ctx: Context) :
             while (c.moveToNext()) out += Visit(c.getString(0), c.getString(1), c.getString(2), c.getLong(3))
             out
         }
+
+    /**
+     * 開発用：その日の「通知済み」の記録を消す。次にその公園に入り直すと、もう一度入園の通知が出る。
+     * 履歴（visits）は消さない。消した件数を返す。
+     */
+    fun deleteNotifiedOn(day: String): Int =
+        writableDatabase.delete("notified", "day = ?", arrayOf(day))
 
     /** 履歴だけを消す。通知済みの記録（notified）は消さないので、今日の再通知は起きない。 */
     fun deleteVisitsBefore(time: Long): Int =

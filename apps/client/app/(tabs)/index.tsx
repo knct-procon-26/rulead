@@ -20,8 +20,11 @@ import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as ParkTracker from "@/modules/park-tracker";
 import Colors from "@/constants/Colors";
 import { ParkRules } from "@/components/rules/ParkRules";
+import { RuleSearchModal } from "@/components/rules/RuleSearchModal";
 import { scannedToDisplay, type ScannedRule } from "@/components/rules/types";
 import { endOuting, ensureOuting, startOuting } from "@/lib/outing";
+import { promptReportPark, promptReportRule } from "@/lib/report";
+import { useCameraWatchEnabled } from "@/lib/settings";
 
 type LoadState =
   | { status: "loading"; parkId: string }
@@ -100,6 +103,8 @@ export default function RuleTab() {
   const [reloadKey, setReloadKey] = useState(0);
   const [detailsTick, setDetailsTick] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const cameraWatchEnabled = useCameraWatchEnabled();
   const refreshSeq = useRef(0);
   const mounted = useRef(true);
 
@@ -164,7 +169,8 @@ export default function RuleTab() {
         setPinnedParkId(null);
         refreshNative();
       }),
-      ParkTracker.addListener("ParkTrackerExit", () => {
+      ParkTracker.addListener("ParkTrackerExit", (e) => {
+        setPinnedParkId((prev) => (prev === e.parkId ? null : prev));
         refreshNative();
       }),
       ParkTracker.addListener("ParkTrackerOutingEnded", () => {
@@ -187,7 +193,12 @@ export default function RuleTab() {
     return currentParks.reduce((a, b) => (b.enteredAt >= a.enteredAt ? b : a));
   }, [currentParks]);
 
-  const targetParkId = pinnedParkId ?? latestCurrent?.parkId ?? null;
+  const pinnedVisible =
+    pinnedParkId !== null &&
+    (!tracking ||
+      (currentParks?.some((p) => p.parkId === pinnedParkId) ?? false));
+  const targetParkId =
+    (pinnedVisible ? pinnedParkId : null) ?? latestCurrent?.parkId ?? null;
   const highlightRuleId =
     highlight !== null && highlight.parkId === targetParkId
       ? highlight.ruleId
@@ -361,7 +372,12 @@ export default function RuleTab() {
               onPress={onStartOuting}
             />
           )}
+          <SearchLink onPress={() => setSearchOpen(true)} />
         </View>
+        <RuleSearchModal
+          visible={searchOpen}
+          onClose={() => setSearchOpen(false)}
+        />
       </View>
     );
   }
@@ -374,9 +390,11 @@ export default function RuleTab() {
       : { name: fallbackName, address: "" };
 
   const footerParts: ReactNode[] = [];
+  const parkIdNum = Number(targetParkId);
+  const canReport = Number.isSafeInteger(parkIdNum) && parkIdNum > 0;
 
   if (
-    pinnedParkId !== null &&
+    pinnedVisible &&
     latestCurrent !== null &&
     latestCurrent.parkId !== pinnedParkId
   ) {
@@ -404,9 +422,26 @@ export default function RuleTab() {
     );
   }
 
+  if (view?.status === "loaded" && view.rules.length > 0) {
+    footerParts.push(
+      <SearchLink
+        key="search"
+        label="このルールで近くの公園を探す"
+        onPress={() => setSearchOpen(true)}
+      />,
+    );
+  }
+
   if (tracking) {
     if (inside && view?.status === "loaded" && view.rules.length > 0) {
-      if (watch.running) {
+      if (!cameraWatchEnabled && !watch.running) {
+        footerParts.push(
+          <Text key="watch" style={styles.watchText}>
+            カメラでの見守りはオフになっています（You
+            タブの設定で変えられます）。
+          </Text>,
+        );
+      } else if (watch.running) {
         footerParts.push(
           <Text key="watch" style={styles.watchText}>
             カメラでルールを見守っています。ルールに関係するものが映ると、そのルールが赤く表示され通知が届きます。画像は保存も送信もしません。
@@ -447,18 +482,59 @@ export default function RuleTab() {
   }
 
   return (
-    <ParkRules
-      park={park}
-      rules={displayRules}
-      loadingText="ルールを読み込んでいます…"
-      emptyText={
-        view?.status === "error"
-          ? view.message
-          : "この公園にはまだルールが登録されていません"
-      }
-      highlightRuleId={highlightRuleId}
-      footer={<View style={styles.footer}>{footerParts}</View>}
-    />
+    <>
+      <ParkRules
+        park={park}
+        rules={displayRules}
+        loadingText="ルールを読み込んでいます…"
+        emptyText={
+          view?.status === "error"
+            ? view.message
+            : "この公園にはまだルールが登録されていません"
+        }
+        highlightRuleId={highlightRuleId}
+        footer={<View style={styles.footer}>{footerParts}</View>}
+        onReportRule={
+          canReport
+            ? (rule, text) => {
+                promptReportRule(parkIdNum, rule.id, text);
+              }
+            : undefined
+        }
+        onReportPark={
+          canReport
+            ? () => {
+                promptReportPark(parkIdNum, park.name);
+              }
+            : undefined
+        }
+      />
+      <RuleSearchModal
+        visible={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        priorityRuleIds={
+          view?.status === "loaded" ? view.rules.map((r) => r.id) : undefined
+        }
+      />
+    </>
+  );
+}
+
+function SearchLink({
+  onPress,
+  label = "近くの公園をルールで探す",
+}: {
+  onPress: () => void;
+  label?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.searchLink, pressed && styles.pressed]}
+    >
+      <Text style={styles.linkText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -526,6 +602,10 @@ const styles = StyleSheet.create({
   linkButton: {
     alignSelf: "flex-start",
     paddingVertical: 4,
+  },
+  searchLink: {
+    alignSelf: "center",
+    paddingVertical: 10,
   },
   linkText: {
     fontSize: 14,
