@@ -6,6 +6,7 @@ import {
 import { useState, useRef } from "react";
 import { View, Pressable, StyleSheet, Image } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { useT } from "@/lib/i18n";
 
 type props = {
   onPictureTaken: (photo: CameraCapturedPicture) => void;
@@ -15,6 +16,7 @@ export default function Camera({ onPictureTaken }: props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [camera, setCamera] = useState<CameraView | null>(null);
   const [zoom, setZoom] = useState(0);
+  const t = useT();
 
   const zoomRef = useRef(0);
   const startZoom = useRef(0);
@@ -82,7 +84,12 @@ export default function Camera({ onPictureTaken }: props) {
           <View style={[styles.screen_base, styles.bottomScreen]}></View>
           <View style={[styles.screen_base, styles.leftScreen]}></View>
           <View style={[styles.screen_base, styles.rightScreen]}></View>
-          <Pressable onPress={takePicture} style={styles.button}></Pressable>
+          <Pressable
+            onPress={takePicture}
+            style={styles.button}
+            accessibilityRole="button"
+            accessibilityLabel={t.scanCamera.shutter}
+          ></Pressable>
         </View>
       </GestureDetector>
     </GestureHandlerRootView>

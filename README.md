@@ -207,6 +207,18 @@ GOOGLE_MAPS_API_KEY - Google maps api を使うためのもの。機密情報な
 設定する値としては、`ipconfig` コマンドを実行してもらって、その中の IPv4アドレス をコピペしてください。
 デプロイ時には正しい値に変更しますが、それまでは、手動で変える感じです。
 
+### overpassの代替
+
+もともとoverpassを使っていましたが、エラーが多発するので公園のジオメトリ情報を抽出して利用する形にしました。
+事前にwslでscripts/build-osm-areas.sh をローカルで実行（2.5GB）して、サーバー起動後に
+
+```
+docker compose cp osm-work/osm-areas.geojsonseq.gz backend:/tmp/
+docker compose exec backend bun run scripts/importOsmAreas.ts /tmp/osm-areas.geojsonseq.gz
+```
+
+を実行してください。
+
 ## 最後に
 
 書き殴ったので、このドキュメントにはおそらく様々なことが不足しています。この通りにしたのに動かない・できない・わからない場合はすぐに連絡を！

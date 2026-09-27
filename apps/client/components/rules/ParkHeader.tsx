@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import Colors from "@/constants/Colors";
+import { useT } from "@/lib/i18n";
 
 type Props = {
   name: string;
@@ -7,6 +8,7 @@ type Props = {
 };
 
 export function ParkHeader({ name, address }: Props) {
+  const t = useT();
   return (
     <View style={styles.container}>
       {address ? (
@@ -15,7 +17,7 @@ export function ParkHeader({ name, address }: Props) {
         </Text>
       ) : null}
       <Text style={styles.name} numberOfLines={2}>
-        {name || "名前のない公園"}
+        {name || t.common.unnamedPark}
       </Text>
       <View style={styles.line} />
     </View>

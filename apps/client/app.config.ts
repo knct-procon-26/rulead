@@ -1,7 +1,5 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
 
-console.log(process.env);
-
 module.exports = ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   slug: "rulead",
@@ -28,5 +26,15 @@ module.exports = ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     ["expo-secure-store"],
+    [
+      "expo-media-library",
+      {
+        photosPermission:
+          "公園日記に、公園にいた時間に撮った写真を表示するために使います。",
+        savePhotosPermission: false,
+        isAccessMediaLocationEnabled: false,
+        granularPermissions: ["photo"],
+      },
+    ],
   ],
 });

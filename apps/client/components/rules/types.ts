@@ -6,7 +6,7 @@ export type ScannedRule = {
   iconId: number;
   iconName: string;
   iconType: IconType;
-  keywords: { id: number; label: string }[];
+  keywords: { id: number; label: string; index: number }[];
 };
 
 export type DisplayRule = {

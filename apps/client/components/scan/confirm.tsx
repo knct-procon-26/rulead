@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Colors from "@/constants/Colors";
 import { ParkRules } from "@/components/rules/ParkRules";
 import { scannedToDisplay, type ScannedRule } from "@/components/rules/types";
+import { useT } from "@/lib/i18n";
 import type { Area } from "./map";
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 
 export default function Confirm({ rules, area, onConfirm, end }: Props) {
   const [submitting, setSubmitting] = useState(false);
+  const t = useT();
   const canConfirm = rules !== null && rules.length > 0 && !submitting;
 
   const confirm = async () => {
@@ -30,8 +32,8 @@ export default function Confirm({ rules, area, onConfirm, end }: Props) {
     <ParkRules
       park={area}
       rules={rules?.map(scannedToDisplay) ?? null}
-      loadingText="看板を読み取っています…"
-      emptyText="ルールが見つかりませんでした"
+      loadingText={t.scanConfirm.reading}
+      emptyText={t.scanConfirm.noRules}
       footer={
         <View style={styles.buttons}>
           <Pressable
@@ -46,7 +48,7 @@ export default function Confirm({ rules, area, onConfirm, end }: Props) {
             disabled={submitting}
             accessibilityRole="button"
           >
-            <Text style={styles.buttonText}>✖ 間違っています</Text>
+            <Text style={styles.buttonText}>{t.scanConfirm.wrong}</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [
@@ -61,7 +63,7 @@ export default function Confirm({ rules, area, onConfirm, end }: Props) {
             accessibilityState={{ disabled: !canConfirm }}
           >
             <Text style={styles.buttonText}>
-              {submitting ? "登録中…" : "✔ コレクションする"}
+              {submitting ? t.scanConfirm.submitting : t.scanConfirm.collect}
             </Text>
           </Pressable>
         </View>

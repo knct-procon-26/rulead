@@ -4,11 +4,17 @@ import { useRef, useState } from "react";
 import Camera from "@/components/scan/camera";
 import Map, { Area } from "@/components/scan/map";
 import { api } from "@/lib/client";
-import { viewError } from "@/lib/utility";
+import {
+  apiErrorMessage,
+  networkErrorMessage,
+  viewError,
+} from "@/lib/utility";
 import Confirm from "@/components/scan/confirm";
 import { useRouter } from "expo-router";
 import Colors from "@/constants/Colors";
 import type { ScannedRule } from "@/components/rules/types";
+import * as ParkTracker from "@/modules/park-tracker";
+import BonusModal, { type Bonus } from "@/components/scan/BonusModal";
 
 type ScanState = "camera" | "map" | "confirm";
 
@@ -16,6 +22,7 @@ export default function ScanTab() {
   const [scanState, setScanState] = useState<ScanState>("camera");
   const [rules, setRules] = useState<ScannedRule[] | null>(null);
   const [area, setArea] = useState<Area | null>(null);
+  const [bonus, setBonus] = useState<Bonus | null>(null);
   const router = useRouter();
   const scanIdRef = useRef(0);
   const submittingRef = useRef(false);
@@ -24,7 +31,13 @@ export default function ScanTab() {
     scanIdRef.current++;
     setRules(null);
     setArea(null);
+    setBonus(null);
     setScanState("camera");
+  };
+
+  const finish = async () => {
+    router.navigate("/(tabs)/collection");
+    await end();
   };
 
   const end = async (message?: string) => {
@@ -51,11 +64,11 @@ export default function ScanTab() {
         } else {
           const err = await res.json();
           if (scanId !== scanIdRef.current) return;
-          await end(err.error);
+          await end(apiErrorMessage(res.status, err.error));
         }
       } catch (error) {
         if (scanId !== scanIdRef.current) return;
-        await end("Failed to connect with API.");
+        await end(networkErrorMessage());
       }
     })();
   };
@@ -72,6 +85,7 @@ export default function ScanTab() {
       const res = await api.api.rules.$post({
         json: {
           park: {
+            id: area.parkId,
             name: area.name,
             address: area.address,
             geometry: area.geometry.map((point) => ({
@@ -83,14 +97,19 @@ export default function ScanTab() {
         },
       });
       if (res.ok) {
-        router.navigate("/(tabs)/collection");
-        await end();
+        const data = await res.json();
+        ParkTracker.refreshParks().catch(() => {});
+        if (data.bonus) {
+          setBonus(data.bonus);
+        } else {
+          await finish();
+        }
       } else {
         const err = await res.json();
-        await end(err.error);
+        await end(apiErrorMessage(res.status, err.error));
       }
     } catch {
-      await end("Failed to connect with API.");
+      await end(networkErrorMessage());
     } finally {
       submittingRef.current = false;
     }
@@ -104,6 +123,15 @@ export default function ScanTab() {
       )}
       {scanState === "confirm" && (
         <Confirm rules={rules} area={area} onConfirm={onConfirm} end={end} />
+      )}
+      {bonus !== null && (
+        <BonusModal
+          bonus={bonus}
+          onDone={() => {
+            setBonus(null);
+            finish();
+          }}
+        />
       )}
     </View>
   );
