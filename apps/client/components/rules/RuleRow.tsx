@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Colors from "@/constants/Colors";
 import { RuleIcon } from "./RuleIcon";
 import type { IconType } from "./types";
@@ -11,6 +17,7 @@ type Props = {
   subtitle?: string;
   right?: ReactNode;
   highlighted?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function RuleRow({
@@ -20,10 +27,11 @@ export function RuleRow({
   subtitle,
   right,
   highlighted = false,
+  style,
 }: Props) {
   return (
     <View
-      style={[styles.row, highlighted && styles.highlighted]}
+      style={[styles.row, highlighted && styles.highlighted, style]}
       accessibilityState={highlighted ? { selected: true } : undefined}
     >
       <RuleIcon name={iconName} iconType={iconType} />
