@@ -64,3 +64,9 @@ export function useTranslatedTexts(
 
   return { textOf, status };
 }
+
+export function cachedText(rule: SourceRule, language: LanguageCode): string {
+  return language === SOURCE_LANGUAGE
+    ? rule.text
+    : (cache.get(cacheKey(language, rule.id)) ?? rule.text);
+}

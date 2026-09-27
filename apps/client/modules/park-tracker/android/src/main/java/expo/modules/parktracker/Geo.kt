@@ -29,14 +29,17 @@ object Grid {
 }
 
 /**
- * 公園1つ分のジオメトリ。
+ * 公園1つ分のジオメトリと詳細。
  * polygons[i] が1つのポリゴンで、polygons[i][0] が外周、polygons[i][1..] が穴。
  * 各リングは [lng0, lat0, lng1, lat1, ...] の平坦な配列（GeoJSON と同じ 経度, 緯度 の順）。
+ * rulesJson はサーバーの properties.rules（RuleResult の配列）をそのまま JSON 文字列で持つ（JS 側で解釈する）。
  */
 class Park(
     val id: String,
     val name: String,
     private val polygons: List<List<DoubleArray>>,
+    val address: String = "",
+    val rulesJson: String = "[]",
 ) {
     val displayName: String get() = name.ifEmpty { "公園" }
 
@@ -145,7 +148,8 @@ class Park(
 /**
  * サーバーのレスポンス（GeoJSON FeatureCollection）を Park のリストに変換する。
  * 想定: features[].id または features[].properties.id が公園ID、properties.name が名前、
- *       geometry が Polygon か MultiPolygon。
+ *       properties.address が住所、properties.rules がルールの配列、geometry が Polygon か MultiPolygon。
+ * address / rules が無い（古いサーバー）場合は空として扱う。
  * レスポンス形式が違う場合はここだけ書き換える。
  */
 object GeoJson {
@@ -160,14 +164,16 @@ object GeoJson {
             val geom = f.optJSONObject("geometry") ?: continue
             val props = f.optJSONObject("properties")
             val id = idOf(f) ?: props?.let { idOf(it) } ?: continue
-            val name = props?.optString("name", "") ?: ""
+            val name = props?.let { str(it, "name") } ?: ""
+            val address = props?.let { str(it, "address") } ?: ""
+            val rulesJson = props?.optJSONArray("rules")?.toString() ?: "[]"
             val coords = geom.optJSONArray("coordinates") ?: continue
             val polygons = when (geom.optString("type")) {
                 "Polygon" -> listOf(parsePolygon(coords))
                 "MultiPolygon" -> (0 until coords.length()).map { parsePolygon(coords.getJSONArray(it)) }
                 else -> continue
             }
-            parks += Park(id, name, polygons)
+            parks += Park(id, name, polygons, address, rulesJson)
         }
         return parks
     }
@@ -175,6 +181,12 @@ object GeoJson {
     private fun idOf(o: JSONObject): String? {
         val v = o.opt("id")
         return if (v == null || v == JSONObject.NULL) null else v.toString()
+    }
+
+    /** 文字列以外（null / JSONObject.NULL など）は "" として扱う（optString は null を "null" にしてしまうため） */
+    private fun str(o: JSONObject, key: String): String {
+        val v = o.opt(key)
+        return if (v is String) v else ""
     }
 
     private fun parsePolygon(rings: JSONArray): List<DoubleArray> =

@@ -37,6 +37,7 @@ type AppWithErrors = ApplyGlobalResponse<
   AppType,
   {
     400: { json: { error: string } };
+    404: { json: { error: string } };
     503: { json: { error: string } };
     500: { json: { error: string } };
   }

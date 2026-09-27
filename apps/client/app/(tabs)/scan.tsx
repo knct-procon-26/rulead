@@ -9,6 +9,7 @@ import Confirm from "@/components/scan/confirm";
 import { useRouter } from "expo-router";
 import Colors from "@/constants/Colors";
 import type { ScannedRule } from "@/components/rules/types";
+import * as ParkTracker from "@/modules/park-tracker";
 
 type ScanState = "camera" | "map" | "confirm";
 
@@ -83,6 +84,7 @@ export default function ScanTab() {
         },
       });
       if (res.ok) {
+        ParkTracker.refreshParks().catch(() => {});
         router.navigate("/(tabs)/collection");
         await end();
       } else {

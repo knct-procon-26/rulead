@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,7 +17,6 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -67,7 +65,16 @@ class ParkTrackerService : Service() {
         private const val FETCH_RETRY_MS = 60_000L  // API 失敗時の最初の再試行間隔（失敗が続くと倍々に延ばす）
         private const val FETCH_RETRY_MAX_MS = 30L * 60 * 1000 // 再試行間隔の上限
 
+        // ---- 外出モード（出発地点に戻ったら自動で終える） ----
+        private const val HOME_MAX_ACCURACY_M = 100f     // 出発地点として使う位置の精度の上限
+        private const val LEAVE_RADIUS_M = 200f          // 誤差を見込んでもこれ以上離れたら「出発した」
+        private const val RETURN_RADIUS_M = 100f         // 出発地点からこれ以内に戻ったら「帰ってきた」
+        private const val RETURN_MAX_ACCURACY_M = 100f   // 帰宅の判定に使う位置の精度の上限
+        private const val RETURN_CONFIRM_COUNT = 2       // 連続何回「帰ってきた」なら終えるか
+        private const val MIN_OUTING_MS = 10L * 60 * 1000 // 外出してからこの時間より前には終えない
+
         private const val FG_NOTIFICATION_ID = 1001
+        private const val OUTING_END_NOTIFICATION_ID = 1004
         private const val CH_TRACKING = "park_tracking"
         private const val CH_ENTER = "park_enter"
         private const val ENTER_NOTIFICATION_TAG = "park_enter"
@@ -77,7 +84,20 @@ class ParkTrackerService : Service() {
 
         /** ParkTrackerModule（Expo モジュール）がセットする。JS が動いていればイベントを流す（動いていなければ null）。 */
         @Volatile var eventSink: ((name: String, body: Map<String, Any?>) -> Unit)? = null
+
+        /**
+         * true にすると、次に位置を処理したときに今のセルをサーバーから取り直す（ParkTrackerModule.refreshParks が立てる）。
+         * 看板を登録した直後に、新しい公園・ルールをすぐ使えるようにするため。
+         */
+        @Volatile var refreshRequested = false
+
+        /** worker スレッドが位置を処理するたびに作り直す読み取り専用のスナップショット。停止中は空 */
+        @Volatile var insideParks: List<InsidePark> = emptyList()
+            private set
     }
+
+    /** いま中にいる公園（JS の getCurrentParks() とカメラでの見守りの開始判定用） */
+    data class InsidePark(val id: String, val name: String, val enteredAt: Long)
 
     private lateinit var client: FusedLocationProviderClient
     private lateinit var store: Store
@@ -97,12 +117,20 @@ class ParkTrackerService : Service() {
     /** いま中にいる公園（退園判定のためにジオメトリごと持つ。セルが変わって parks から消えても判定できる） */
     private val inside = LinkedHashMap<String, Park>()
     private val outsideCounts = HashMap<String, Int>()
+    /** 公園 ID → 入った時刻（UNIX ミリ秒）。inside と同じキーを持つ */
+    private val enteredAt = HashMap<String, Long>()
 
     private var anchor: Location? = null           // 静止判定の基準点
     private var stillCount = 0
     private var inParkIntervalMs = FAST_INTERVAL_MS
     private var currentIntervalMs = 0L
     private var lastFixElapsedNs = 0L
+
+    /** 外出モードの状態（外出モードでなければ null）。onStartCommand で読み込む */
+    private var outing: Outing.State? = null
+    private var returnCount = 0
+    /** 入っている公園や公園のデータが変わった → カメラでの見守りに見る公園を選び直させる */
+    private var watchRefreshNeeded = false
 
     private val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -166,14 +194,23 @@ class ParkTrackerService : Service() {
 
         alive = true
         isRunning = true
-        // 2回目以降の start（すでに動いている）なら今の間隔を維持する
-        handler.post { if (currentIntervalMs == 0L) setInterval(SLOW_INTERVAL_MS) }
+        handler.post {
+            // 外出モードの状態（「外出する」で保存される。OS による再起動でも続きから判定する）。
+            // worker が保存する更新と順番が入れ替わらないよう、読み込みも worker で行う
+            outing = Outing.load(this)
+            returnCount = 0
+            // 2回目以降の start（すでに動いている）なら今の間隔を維持する
+            if (currentIntervalMs == 0L) setInterval(SLOW_INTERVAL_MS)
+        }
         return START_STICKY
     }
 
     override fun onDestroy() {
         alive = false
         isRunning = false
+        insideParks = emptyList()
+        // 公園の中にいるか判断できなくなるので、公園内だけで動くカメラの見守りも止める
+        RuleWatchService.onTrackerStopped()
         // 位置リクエストの変更は worker で行っているので、解除も worker の列の最後に積む（途中の再登録と競合させない）
         handler.post { client.removeLocationUpdates(callback) }
         client.removeLocationUpdates(callback)
@@ -241,7 +278,10 @@ class ParkTrackerService : Service() {
         //    数百m以上ずれた位置で別のセルを問い合わせないよう、ある程度正確な位置だけを使う
         if (loc.accuracy <= MAX_ACCURACY_FOR_CELL_M) {
             val cell = Grid.cellOf(loc.latitude, loc.longitude)
-            if (cell.key != cellKey || (needsRefetch && now - lastFetchFailAt >= retryDelayMs())) {
+            // 取り直しの依頼（キャッシュは依頼元で消してあるので、loadParks はサーバーに問い合わせる）
+            val refresh = refreshRequested
+            if (refresh) refreshRequested = false
+            if (refresh || cell.key != cellKey || (needsRefetch && now - lastFetchFailAt >= retryDelayMs())) {
                 loadParks(cell, cfg, now)
             }
         }
@@ -257,6 +297,18 @@ class ParkTrackerService : Service() {
         // 4. 取得間隔を切り替え（外 = 60秒 / 中 = 10秒〜60秒）
         setInterval(if (inside.isEmpty()) SLOW_INTERVAL_MS else inParkIntervalMs)
 
+        // 5. いま中にいる公園を JS / カメラの見守りから読めるようにする（名前の更新も反映される）
+        publishInside()
+        if (watchRefreshNeeded) {
+            // スナップショットを更新した後で知らせる（見守り側はスナップショットを読んで公園を選ぶ）
+            watchRefreshNeeded = false
+            RuleWatchService.refresh()
+        }
+
+        // 6. 外出モード：出発地点に戻ってきたら終える（この中で stopSelf することがある）
+        updateOuting(loc, now)
+        if (!alive) return
+
         emit(
             "ParkTrackerLocation",
             mapOf(
@@ -268,6 +320,66 @@ class ParkTrackerService : Service() {
                 "intervalMs" to currentIntervalMs.toDouble(),
             ),
         )
+    }
+
+    private fun publishInside() {
+        if (!alive) return // 停止後に古いインスタンスが空にしたスナップショットを上書きしない
+        insideParks = inside.values.map { InsidePark(it.id, it.name, enteredAt[it.id] ?: 0L) }
+    }
+
+    /**
+     * 外出モード：
+     *  1. 押した後に最初に取れた精度のよい位置を出発地点にする
+     *  2. 誤差を見込んでも LEAVE_RADIUS_M 以上離れたら「出発した」とする
+     *  3. 出発した後、MIN_OUTING_MS 以上たってから出発地点の RETURN_RADIUS_M 以内に
+     *     RETURN_CONFIRM_COUNT 回続けて戻ったら、外出を終える
+     * 状態は変わるたびに端末内に保存する（OS に再起動されても続きから判定する）。
+     */
+    private fun updateOuting(loc: Location, now: Long) {
+        val o = outing ?: return
+        val homeLat = o.homeLat
+        val homeLng = o.homeLng
+        if (homeLat == null || homeLng == null) {
+            if (loc.accuracy <= HOME_MAX_ACCURACY_M) {
+                val next = o.copy(homeLat = loc.latitude, homeLng = loc.longitude)
+                outing = next
+                Outing.save(this, next)
+                Log.d(TAG, "outing: home point set")
+            }
+            return
+        }
+        val dist = FloatArray(1)
+        Location.distanceBetween(homeLat, homeLng, loc.latitude, loc.longitude, dist)
+        val d = dist[0]
+        if (!o.leftHome) {
+            if (d - loc.accuracy > LEAVE_RADIUS_M) {
+                val next = o.copy(leftHome = true)
+                outing = next
+                Outing.save(this, next)
+                Log.d(TAG, "outing: left home")
+            }
+            return
+        }
+        if (loc.accuracy > RETURN_MAX_ACCURACY_M) return // 精度の悪い位置ではどちらにも数えない
+        if (d <= RETURN_RADIUS_M && now - o.startedAt >= MIN_OUTING_MS) {
+            returnCount++
+            if (returnCount >= RETURN_CONFIRM_COUNT) endOuting(now)
+        } else {
+            returnCount = 0
+        }
+    }
+
+    /** 出発地点に戻ってきた → 外出を終える（位置の記録もカメラでの見守りも止める。OS による再開もしない） */
+    private fun endOuting(now: Long) {
+        Log.d(TAG, "outing: returned; stopping")
+        outing = null
+        Config.clear(this)
+        Outing.clear(this)
+        notifyOutingEnded()
+        emit("ParkTrackerOutingEnded", mapOf("reason" to "returned", "time" to now.toDouble()))
+        // 以降に届いた位置は処理しない（onDestroy でも false になる）。カメラは onDestroy で止まる
+        alive = false
+        stopSelf()
     }
 
     /**
@@ -292,6 +404,7 @@ class ParkTrackerService : Service() {
         for (id in exited) {
             inside.remove(id)
             outsideCounts.remove(id)
+            enteredAt.remove(id)
             onExit(id, loc)
         }
     }
@@ -302,6 +415,7 @@ class ParkTrackerService : Service() {
             if (!inside.containsKey(park.id) && park.contains(loc.latitude, loc.longitude)) {
                 inside[park.id] = park
                 outsideCounts.remove(park.id)
+                enteredAt[park.id] = System.currentTimeMillis()
                 onEnter(park)
             }
         }
@@ -349,8 +463,9 @@ class ParkTrackerService : Service() {
         try {
             val body = ParkApi.fetch(cfg, cell)
             val parsed = GeoJson.parseParks(body) // 壊れたレスポンスを保存しないよう先にパース
-            store.putParks(cell.key, body, now)
+            store.putParks(cell.key, body, parsed, now) // 公園の詳細（名前・住所・ルール）も一緒に保存
             applyParks(parsed)
+            watchRefreshNeeded = true // 中にいる公園のルールが更新されたかもしれない
             needsRefetch = false
             fetchFailures = 0
             Log.d(TAG, "fetched ${parsed.size} parks for cell ${cell.key}")
@@ -385,6 +500,7 @@ class ParkTrackerService : Service() {
         val now = System.currentTimeMillis()
         val first = store.recordFirstVisitOfDay(park, today(now), now)
         if (first) notifyEnter(park)
+        watchRefreshNeeded = true // ルールのある公園ならカメラでの見守りを始める
         Log.d(TAG, "enter ${park.id} firstToday=$first")
         emit(
             "ParkTrackerEnter",
@@ -394,6 +510,7 @@ class ParkTrackerService : Service() {
 
     private fun onExit(parkId: String, loc: Location) {
         Log.d(TAG, "exit $parkId")
+        watchRefreshNeeded = true // 公園の外ではカメラを止める（他の公園の中なら、そちらに切り替える）
         emit("ParkTrackerExit", mapOf("parkId" to parkId, "time" to loc.time.toDouble()))
     }
 
@@ -419,24 +536,32 @@ class ParkTrackerService : Service() {
         )
     }
 
-    private fun openAppIntent(requestCode: Int, parkId: String? = null): PendingIntent? {
-        val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return null
-        launch.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        if (parkId != null) launch.putExtra("parkTrackerParkId", parkId)
-        return PendingIntent.getActivity(
-            this, requestCode, launch,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-    }
-
     private fun buildTrackingNotification() =
         NotificationCompat.Builder(this, CH_TRACKING)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation) // 本番では自前の白抜きモノクロアイコン（R.drawable.xxx）に差し替える
             .setContentTitle("近くの公園をチェック中")
             .setContentText("公園に入ると通知します")
             .setOngoing(true)
-            .setContentIntent(openAppIntent(0))
+            .setContentIntent(AppLinks.rulesPendingIntent(this, 0, null))
             .build()
+
+    @SuppressLint("MissingPermission")
+    private fun notifyOutingEnded() {
+        val nm = NotificationManagerCompat.from(this)
+        if (!nm.areNotificationsEnabled()) return
+        val n = NotificationCompat.Builder(this, CH_TRACKING)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle("おかえりなさい")
+            .setContentText("出発した場所の近くに戻ったので、外出を終えました")
+            .setAutoCancel(true)
+            .setContentIntent(AppLinks.rulesPendingIntent(this, OUTING_END_NOTIFICATION_ID, null))
+            .build()
+        try {
+            nm.notify(OUTING_END_NOTIFICATION_ID, n)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "notify denied", e)
+        }
+    }
 
     @SuppressLint("MissingPermission")
     private fun notifyEnter(park: Park) {
@@ -445,10 +570,11 @@ class ParkTrackerService : Service() {
         val n = NotificationCompat.Builder(this, CH_ENTER)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle("${park.displayName}に入りました")
-            .setContentText("タップしてアプリを開く")
+            .setContentText("タップしてルールを確認")
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(openAppIntent(park.id.hashCode(), park.id))
+            // タップで Rules タブ（この公園）を開く
+            .setContentIntent(AppLinks.rulesPendingIntent(this, park.id.hashCode(), park.id))
             .build()
         try {
             nm.notify(ENTER_NOTIFICATION_TAG, park.id.hashCode(), n)

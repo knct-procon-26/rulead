@@ -11,7 +11,7 @@ import {
   rules as rulesTable,
 } from "../db/schema";
 
-type Keyword = { id: number; label: string };
+type Keyword = { id: number; label: string; index: number };
 type KeywordCandidate = { index: number; label: string };
 export type IconType = "prohibition" | "caution" | "information";
 
@@ -468,6 +468,7 @@ export async function loadRules(
       ruleId: ruleKeywords.ruleId,
       id: keywords.id,
       label: keywords.label,
+      index: keywords.index,
     })
     .from(ruleKeywords)
     .innerJoin(keywords, eq(ruleKeywords.keywordId, keywords.id))
@@ -477,7 +478,9 @@ export async function loadRules(
     result.set(r.id, { ...r, iconType: r.iconType as IconType, keywords: [] });
   }
   for (const k of kwRows) {
-    result.get(k.ruleId)?.keywords.push({ id: k.id, label: k.label });
+    result
+      .get(k.ruleId)
+      ?.keywords.push({ id: k.id, label: k.label, index: k.index });
   }
   return result;
 }

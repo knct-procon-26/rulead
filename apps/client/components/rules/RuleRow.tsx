@@ -10,11 +10,22 @@ type Props = {
   title: string;
   subtitle?: string;
   right?: ReactNode;
+  highlighted?: boolean;
 };
 
-export function RuleRow({ iconName, iconType, title, subtitle, right }: Props) {
+export function RuleRow({
+  iconName,
+  iconType,
+  title,
+  subtitle,
+  right,
+  highlighted = false,
+}: Props) {
   return (
-    <View style={styles.row}>
+    <View
+      style={[styles.row, highlighted && styles.highlighted]}
+      accessibilityState={highlighted ? { selected: true } : undefined}
+    >
       <RuleIcon name={iconName} iconType={iconType} />
       <View style={styles.texts}>
         <Text style={styles.title}>{title}</Text>
@@ -33,6 +44,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
+  },
+  highlighted: {
+    marginHorizontal: -12,
+    paddingLeft: 8,
+    paddingRight: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.danger,
+    borderRadius: 8,
+    borderBottomWidth: 0,
+    backgroundColor: "#fdecea",
   },
   texts: {
     flex: 1,

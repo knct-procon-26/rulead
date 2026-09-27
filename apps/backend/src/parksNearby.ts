@@ -1,30 +1,12 @@
-/**
- * 参考実装：アプリの ParkApi.kt が呼ぶ API（Hono + drizzle + PostGIS）
- *
- *   GET /parks/nearby?lat=<セル中心の緯度>&lng=<セル中心の経度>
- *   → GeoJSON FeatureCollection（features[].id = parks.id, properties.name = parks.name）
- *
- * 組み込み例:
- *   import { parksRoute } from "./routes/parksNearby";
- *   app.route("/parks", parksRoute);   // 認証ミドルウェアの後ろに置く
- */
 import { Hono } from "hono";
-import { and, isNull, sql } from "drizzle-orm";
+import { and, asc, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "./db/client";
-import { parks } from "./db/schema";
+import { parkRules, parks } from "./db/schema";
 import { AuthContext } from "./auth";
+import { loadRules, type RuleResult } from "./lib/createRule";
 
-/**
- * セル中心からこの距離（メートル）以内に一部でもかかる公園を返す。
- * 1km セルの中心から角までは約 707m なので、セル内のどこにいても
- * その周りの公園を取りこぼさないよう余裕を持たせている。
- */
 const RADIUS_M = 1000;
 
-/**
- * GiST インデックス（parks_area_gist_index）を効かせるための粗い絞り込み（度）。
- * 緯度 60° までなら RADIUS_M を含む大きさ。
- */
 const BBOX_DEG = 0.02;
 
 const app = new Hono<AuthContext>();
@@ -47,7 +29,7 @@ const parksRoute = app.get("/nearby", async (c) => {
     .select({
       id: parks.id,
       name: parks.name,
-      // 小数点以下 6 桁（約 10cm）に丸めて転送量を減らす
+      address: parks.address,
       geometry: sql<string>`ST_AsGeoJSON(${parks.area}, 6)`,
     })
     .from(parks)
@@ -59,12 +41,38 @@ const parksRoute = app.get("/nearby", async (c) => {
       ),
     );
 
+  const parkIds = rows.map((r) => r.id);
+  const links =
+    parkIds.length === 0
+      ? []
+      : await db
+          .select({ parkId: parkRules.parkId, ruleId: parkRules.ruleId })
+          .from(parkRules)
+          .where(
+            and(inArray(parkRules.parkId, parkIds), isNull(parkRules.hiddenAt)),
+          )
+          .orderBy(asc(parkRules.createdAt), asc(parkRules.id));
+
+  const loaded = await loadRules([...new Set(links.map((l) => l.ruleId))]);
+  const rulesOf = new Map<number, RuleResult[]>();
+  for (const l of links) {
+    const rule = loaded.get(l.ruleId);
+    if (!rule) continue;
+    const list = rulesOf.get(l.parkId);
+    if (list) list.push(rule);
+    else rulesOf.set(l.parkId, [rule]);
+  }
+
   return c.json({
     type: "FeatureCollection",
     features: rows.map((r) => ({
       type: "Feature",
-      id: r.id, // アプリ側では "12" のような文字列として扱う。日をまたいでも変わらないこと
-      properties: { name: r.name },
+      id: r.id,
+      properties: {
+        name: r.name,
+        address: r.address,
+        rules: rulesOf.get(r.id) ?? [],
+      },
       geometry: JSON.parse(r.geometry),
     })),
   });
