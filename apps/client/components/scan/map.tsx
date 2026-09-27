@@ -18,6 +18,21 @@ export type Area = {
   address: string;
 };
 
+export async function MapSearchFromDB(latitude: number, longitude: number) {
+  try{
+    const fetchdate = await fetch(`http://10.0.2.2:3000/api/parks/search?lat=${latitude}&lng=${longitude}`);
+    if (!fetchdate.ok){
+      return null;
+    }
+    const parkDB = await fetchdate.json();
+    return parkDB;
+  }
+  catch(error){
+    console.error("データベースに見つかりません", error);
+    return null;
+  }
+}
+
 export default function Map({ onLocationDecided }: props) {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -36,6 +51,19 @@ export default function Map({ onLocationDecided }: props) {
 
   const getArea = async (latitude: number, longitude: number) => {
     try {
+      const mapdate = await MapSearchFromDB(latitude, longitude);
+      if (mapdate != null){
+        const polygoncast = mapdate.area as unknown as [number, number][][];
+        const pointlist = polygoncast[0] || [];
+        const togeometry = pointlist.map((pointlist) => ({latitude: pointlist[1], longitude: pointlist[0]}));
+        setAreas([{
+          name: mapdate.name,
+          address: mapdate.address,
+          geometry: togeometry,
+        }]);
+        setAddress(mapdate.address);
+        return;
+      }
       const result = await reverseGeocode(latitude, longitude);
       const areas = result.elements.map((element) => ({
         geometry: element.geometry.map((point) => ({
