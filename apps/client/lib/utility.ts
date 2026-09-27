@@ -103,9 +103,6 @@ export async function getCurrentLocation(): Promise<{
   latitude: number;
   longitude: number;
 }> {
-  if (Debug.isDebug) {
-    return Debug.location;
-  }
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
     throw new Error("位置情報へのアクセスが許可されていない");
