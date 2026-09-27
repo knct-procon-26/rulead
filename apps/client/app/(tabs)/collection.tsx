@@ -1,225 +1,318 @@
-import { FlatList,Image,StyleSheet,TouchableOpacity} from "react-native";
-
-import EditScreenInfo from "@/components/EditScreenInfo";
-import { Text, View } from "@/components/Themed";
-import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/client";
-import { Icon } from "@/components/Icon";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useFocusEffect } from "expo-router";
+import { api } from "@/lib/client";
 import { viewError } from "@/lib/utility";
+import { useLanguage } from "@/lib/language";
+import Colors from "@/constants/Colors";
+import { RuleRow } from "@/components/rules/RuleRow";
+import { LanguagePicker } from "@/components/rules/LanguagePicker";
+import { useTranslatedTexts } from "@/components/rules/useTranslatedTexts";
+import { toIconType, type DisplayRule } from "@/components/rules/types";
 
-type Badge = { badgeType: "new" | "+1" | "none" };
+type Badge = "new" | "+1" | "none";
 
-type Rule = {
-  id: string;
+type CollectedRule = DisplayRule & {
   count: number;
-  textEn: string;
-  iconName: string;
-  iconType: string;
   total: number;
-  badge: Badge;
+  lastCollectedAt: number;
 };
 
-function chooseBadge(count: number, lastCollectedAt: Date): Badge {
-  const now = new Date();
-  if ((now.getTime() - lastCollectedAt.getTime()) / (1000 * 60) < 60) {
-    if (count === 1) {
-      return { badgeType: "new" };
-    } else {
-      return { badgeType: "+1" };
-    }
-  } else {
-    return { badgeType: "none" };
-  }
+const BADGE_MINUTES = 60;
+
+function chooseBadge(count: number, lastCollectedAt: number): Badge {
+  if ((Date.now() - lastCollectedAt) / (1000 * 60) >= BADGE_MINUTES)
+    return "none";
+  return count === 1 ? "new" : "+1";
 }
 
 export default function CollectionTab() {
   const [signCount, setSignCount] = useState<number | null>(null);
-  const [rules, setRules] = useState<Rule[] | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
+  const [rules, setRules] = useState<CollectedRule[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const [language, setLanguage] = useLanguage();
+  const { textOf } = useTranslatedTexts(rules ?? [], language);
+
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
+      setFailed(false);
       (async () => {
-        const res = await api.api.collection.$get();
-        if (!res.ok) {
-          const err = await res.json();
-          await viewError(err.error);
-          return;
+        try {
+          const res = await api.api.collection.$get();
+          if (!res.ok) {
+            const err = await res.json();
+            if (cancelled) return;
+            setFailed(true);
+            await viewError(err.error);
+            return;
+          }
+          const data = await res.json();
+          if (cancelled) return;
+          setSignCount(data.signCount);
+          setTotal(data.total ?? 0);
+          setRules(
+            data.rules
+              .map((i) => ({
+                id: i.id,
+                text: i.textEn,
+                iconName: i.iconName,
+                iconType: toIconType(i.iconType),
+                count: i.count,
+                total: i.total,
+                lastCollectedAt: new Date(i.lastCollectedAt).getTime(),
+              }))
+              .sort((a, b) => b.lastCollectedAt - a.lastCollectedAt),
+          );
+        } catch {
+          if (cancelled) return;
+          setFailed(true);
+          await viewError("Failed to connect with API.");
         }
-        const data = await res.json();
-        setSignCount(data.signCount);
-        setTotal(data.total);
-        setRules(
-          data.rules.map((i) => ({
-            id: i.id,
-            count: i.count,
-            textEn: i.textEn,
-            iconName: i.iconName,
-            iconType: i.iconType,
-            total: i.total,
-            badge: chooseBadge(i.count, new Date(i.lastCollectedAt)),
-          })),
-        );
       })();
 
       return () => {
-        setRules(null);
+        cancelled = true;
       };
     }, []),
   );
+
+  if (rules === null) {
+    return (
+      <View style={styles.center}>
+        {failed ? (
+          <Text style={styles.empty}>
+            読み込めませんでした。{"\n"}タブを開き直すと再読み込みします。
+          </Text>
+        ) : (
+          <ActivityIndicator size="large" color={Colors.mutedText} />
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {rules ? (
-        <View style={styles.container}>
-          <View style={styles.up}>
-          <View style={styles.check}>
-          <Text style={styles.font}>撮影した看板</Text>
-          <Text style={styles.font2}>21</Text>
-          <Text style={styles.font3}>個</Text>
-          </View>
-          <View style={styles.check2}>
-          <Text style={styles.font}>訪れた公園</Text>
-          <Text style={styles.font2}>17</Text>
-          <Text style={styles.font3}>箇所</Text>
-          </View>
-          <Text　style={styles.title}>ルール一覧</Text>
-          <View style={styles.line}></View>
+      <View style={styles.stats}>
+        <View style={styles.stat}>
+          <Text style={styles.statLabel}>撮影した看板</Text>
+          <Text style={styles.statValue}>{signCount ?? "-"}</Text>
         </View>
-        <View style={styles.low}>
-          <FlatList
+        <View style={styles.stat}>
+          <Text style={styles.statLabel}>訪れた公園</Text>
+          {/* TODO: 訪れた公園の数 */}
+          <Text style={styles.statValue}>-</Text>
+        </View>
+      </View>
+      <View style={styles.toolbar}>
+        <LanguagePicker value={language} onChange={setLanguage} />
+      </View>
+
+      <FlatList
         data={rules}
-        renderItem={({item})=>(
-  <View key={item.id} style={styles.rule}>
-  <Icon name={item.iconName} iconType={item.iconType}></Icon>
-  <Text style={styles.text}>{item.textEn}</Text>
-  <Text style={styles.count}>{item.count}コ</Text>
-{item.badge.badgeType === "new"&&<Text style={styles.new}>NEW</Text>}
-{item.badge.badgeType === "+1"&&<Text style={styles.increment}>+1</Text>}
-</View>
- )}
-        keyExtractor={item => item.id}
-        ItemSeparatorComponent={()=><View style={styles.bar}/>}
-        />
-        </View>
-        </View>
-      ) : ( 
-               <Text>読み込み中...</Text>
-      )}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            まだコレクションがありません。{"\n"}
+            看板を撮影してどんどんルールを集めましょう！
+          </Text>
+        }
+        renderItem={({ item }) => {
+          const badge = chooseBadge(item.count, item.lastCollectedAt);
+          return (
+            <RuleRow
+              iconName={item.iconName}
+              iconType={item.iconType}
+              title={textOf(item)}
+              subtitle={
+                total > 0
+                  ? `全体の ${((item.total / total) * 100).toFixed(1)}%`
+                  : undefined
+              }
+              right={
+                <>
+                  {badge !== "none" ? (
+                    <Text
+                      style={[
+                        styles.badge,
+                        badge === "new" ? styles.badgeNew : styles.badgePlus,
+                      ]}
+                    >
+                      {badge === "new" ? "NEW" : "+1"}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.count}>×{item.count}</Text>
+                </>
+              }
+            />
+          );
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  title:{
-  position:"absolute",
-  left:"3%",
-  bottom:0,
-  fontSize:20,
-  fontWeight:"600"
+  title: {
+    position: "absolute",
+    left: "3%",
+    bottom: 0,
+    fontSize: 20,
+    fontWeight: "600",
   },
-  bar:{
-left:"3%",
-height:3,
-width:"94%",
-backgroundColor:"black"
+  bar: {
+    height: 1,
+    marginHorizontal: 20,
+    backgroundColor: Colors.border,
   },
-   line:{
-    position:"absolute",
-    left:"3%",
-    height:3,
-    width:"94%",
-    bottom:0,
-    backgroundColor:"black"
+  line: {
+    position: "absolute",
+    left: "3%",
+    height: 3,
+    width: "94%",
+    bottom: 0,
+    backgroundColor: "black",
   },
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
-  low:{
-    backgroundColor:"white",
-    flex:3,
-    flexDirection:"column",
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.background,
   },
-  up:{
-    flex:1,
-    backgroundColor:"white"
-  },
-  rule: {
+  stats: {
     flexDirection: "row",
-    left:"3%",
-    width:"94%",  
-    height:50,
-    backgroundColor:"rgba(240, 239, 239, 0.93)"
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
-  check:{
-    position:"absolute",
-    borderWidth:2,
-    width:"40%",
-    height:"55%",
-    top:"10%",
-    left:"5%",
-    borderRadius:10,
+  stat: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
   },
-  check2:{
-    position:"absolute",
-    borderWidth:2,
-    width:"40%",
-    height:"55%",
-    top:"10%",
-    right:"5%",
-    borderRadius:10
+  statLabel: {
+    fontSize: 13,
+    color: Colors.subText,
   },
-  font:{
-    fontSize:17,
-    fontWeight:"600"
+  statValue: {
+    marginTop: 2,
+    fontSize: 28,
+    fontWeight: "bold",
+    color: Colors.text,
   },
-  font2:{
-    fontSize:40,
-    fontWeight:"600",
-    textAlign:"center"
+  toolbar: {
+    alignItems: "flex-end",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
-  font3:{
-    position:"absolute",
-    left:"70%",
-    top:"65%"
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  text:{
-   position:"absolute",
-   fontSize:18,
-   fontWeight:"700",
-   left:"12%",
-   right:"18%",
-   textAlignVertical:"center",
-   height:50
+  empty: {
+    marginTop: 40,
+    fontSize: 15,
+    lineHeight: 22,
+    color: Colors.subText,
+    textAlign: "center",
   },
-  count:{
-   position:"absolute",
-   fontSize:19,
-   fontWeight:"700",
-   left:"83%",
-   top:"25%"
+  badge: {
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#ffffff",
   },
-  new:{
-   position:"absolute",
-   left:"89%",
-   top:0,
-   fontSize:13,
-   paddingVertical:2,
-   paddingHorizontal:5,
-   color:"white",
-   fontWeight:"700",
-   backgroundColor:"rgb(251, 190, 7)",
-   borderRadius:20
+  badgeNew: {
+    backgroundColor: Colors.success,
   },
-  increment:{
-  position:"absolute",
-   left:"89%",
-   top:0,
-   fontSize:13,
-   paddingVertical:1,
-   paddingHorizontal:6,
-   color:"white",
-   fontWeight:"700",
-   backgroundColor:"rgb(44, 188, 0)",
-   borderRadius:20
-  }
+  badgePlus: {
+    backgroundColor: "#f08c00",
+  },
+  count: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: Colors.text,
+  },
+  check: {
+    position: "absolute",
+    borderWidth: 2,
+    width: "40%",
+    height: "55%",
+    top: "10%",
+    left: "5%",
+    borderRadius: 10,
+  },
+  check2: {
+    position: "absolute",
+    borderWidth: 2,
+    width: "40%",
+    height: "55%",
+    top: "10%",
+    right: "5%",
+    borderRadius: 10,
+  },
+  font: {
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  font2: {
+    fontSize: 40,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  font3: {
+    position: "absolute",
+    left: "70%",
+    top: "65%",
+  },
+  text: {
+    position: "absolute",
+    fontSize: 18,
+    fontWeight: "700",
+    left: "12%",
+    right: "18%",
+    textAlignVertical: "center",
+    height: 50,
+  },
+  new: {
+    position: "absolute",
+    left: "89%",
+    top: 0,
+    fontSize: 13,
+    paddingVertical: 2,
+    paddingHorizontal: 5,
+    color: "white",
+    fontWeight: "700",
+    backgroundColor: "rgb(251, 190, 7)",
+    borderRadius: 20,
+  },
+  increment: {
+    position: "absolute",
+    left: "89%",
+    top: 0,
+    fontSize: 13,
+    paddingVertical: 1,
+    paddingHorizontal: 6,
+    color: "white",
+    fontWeight: "700",
+    backgroundColor: "rgb(44, 188, 0)",
+    borderRadius: 20,
+  },
 });

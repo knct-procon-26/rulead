@@ -1,33 +1,20 @@
-import { StyleSheet, TouchableOpacity } from "react-native";
-import EditScreenInfo from "@/components/EditScreenInfo";
-import { Text, View } from "@/components/Themed";
-import { Link } from "expo-router";
-import {
-  CameraCapturedPicture,
-  CameraView,
-  useCameraPermissions,
-} from "expo-camera";
+import { StyleSheet, View } from "react-native";
+import { CameraCapturedPicture } from "expo-camera";
 import { useRef, useState } from "react";
 import Camera from "@/components/scan/camera";
 import Map, { Area } from "@/components/scan/map";
 import { api } from "@/lib/client";
-import { viewError } from "../../lib/utility";
+import { viewError } from "@/lib/utility";
 import Confirm from "@/components/scan/confirm";
 import { useRouter } from "expo-router";
+import Colors from "@/constants/Colors";
+import type { ScannedRule } from "@/components/rules/types";
 
 type ScanState = "camera" | "map" | "confirm";
-type Rule = {
-  id: string;
-  text: string;
-  iconId: number;
-  iconName: string;
-  iconType: "prohibition" | "caution" | "information";
-  keywords: { id: number; label: string }[];
-};
+
 export default function ScanTab() {
   const [scanState, setScanState] = useState<ScanState>("camera");
-  const [photo, setPhoto] = useState<CameraCapturedPicture | null>(null);
-  const [rules, setRules] = useState<Rule[]>([]);
+  const [rules, setRules] = useState<ScannedRule[] | null>(null);
   const [area, setArea] = useState<Area | null>(null);
   const router = useRouter();
   const scanIdRef = useRef(0);
@@ -35,8 +22,7 @@ export default function ScanTab() {
 
   const reset = () => {
     scanIdRef.current++;
-    setPhoto(null);
-    setRules([]);
+    setRules(null);
     setArea(null);
     setScanState("camera");
   };
@@ -47,14 +33,15 @@ export default function ScanTab() {
   };
 
   const onPictureTaken = (photo: CameraCapturedPicture) => {
-    setPhoto(photo);
-    if (photo.base64 === undefined) return;
+    const base64Image = photo.base64;
+    if (base64Image === undefined) return;
+    setRules(null);
     setScanState("map");
     const scanId = ++scanIdRef.current;
     (async () => {
       try {
         const res = await api.api.scan.$post({
-          json: { base64Image: photo.base64 ?? "" },
+          json: { base64Image },
         });
 
         if (res.ok) {
@@ -75,15 +62,12 @@ export default function ScanTab() {
 
   const onLocationDecided = (area: Area) => {
     setArea(area);
-    console.log(area);
     setScanState("confirm");
   };
 
   const onConfirm = async () => {
-    if (!area || submittingRef.current) return;
+    if (!area || !rules || rules.length === 0 || submittingRef.current) return;
     submittingRef.current = true;
-    console.log(area);
-    if (!area) return;
     try {
       const res = await api.api.rules.$post({
         json: {
@@ -112,11 +96,6 @@ export default function ScanTab() {
     }
   };
 
-  /*
-  ・ゴミを散らかしてはいけません。
-  ・人を集めてください。
-  */
-
   return (
     <View style={styles.container}>
       {scanState === "camera" && <Camera onPictureTaken={onPictureTaken} />}
@@ -124,7 +103,7 @@ export default function ScanTab() {
         <Map onLocationDecided={onLocationDecided} end={end} />
       )}
       {scanState === "confirm" && (
-        <Confirm onConfirm={onConfirm} rules={rules} end={end} />
+        <Confirm rules={rules} area={area} onConfirm={onConfirm} end={end} />
       )}
     </View>
   );
@@ -133,26 +112,6 @@ export default function ScanTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  text: {
-    fontSize: 20,
-    padding: 30,
-    color: "black",
-  },
-  button1: {
-    position: "absolute",
-    top: "80%",
-    bottom: 0,
-    right: "50%",
-    left: 0,
-    backgroundColor: "pink",
-  },
-  button2: {
-    position: "absolute",
-    top: "80%",
-    bottom: 0,
-    left: "50%",
-    right: 0,
-    backgroundColor: "orange",
+    backgroundColor: Colors.background,
   },
 });

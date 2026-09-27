@@ -1,15 +1,14 @@
-import { Text } from "@/components/Themed";
 import { getCurrentLocation, reverseGeocode } from "@/lib/utility";
-import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Button, StyleSheet, View } from "react-native";
-import { viewError } from "@/lib/utility";
+import { useEffect, useState } from "react";
+import { Button, StyleSheet, Text, View } from "react-native";
 import MapView, {
   LatLng,
   Marker,
   Polygon,
   PROVIDER_GOOGLE,
 } from "react-native-maps";
+import Colors from "@/constants/Colors";
+
 type props = {
   onLocationDecided: (area: Area) => void;
   end: (message?: string) => Promise<void>;
@@ -24,7 +23,6 @@ export type Area = {
 export default function Map({ onLocationDecided, end }: props) {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
-  const [address, setAddress] = useState<string>("");
   const [index, setIndex] = useState<number>(0);
 
   const getLocation = async () => {
@@ -63,21 +61,22 @@ export default function Map({ onLocationDecided, end }: props) {
     getArea(location.latitude, location.longitude);
   }, [location]);
 
+  const current = areas.length > 0 ? areas[index] : null;
+
   const onPress = () => {
-    console.log(areas);
-    onLocationDecided(areas[index]);
+    if (current) onLocationDecided(current);
   };
 
   // TODO: 自分でエリアを囲って決定できるようにする。
   // TODO: 公園の名前を変更できるようにする
   return (
     <View style={styles.container}>
-      <Text>
+      <Text style={styles.text}>
         現在の位置:{" "}
         {location ? `${location.latitude}, ${location.longitude}` : "取得中..."}
       </Text>
-      {areas.length > 0 && <Text>公園の名前: {areas[index].name}</Text>}
-      <Text>住所: {address}</Text>
+      {current && <Text style={styles.text}>公園の名前: {current.name}</Text>}
+      <Text style={styles.text}>住所: {current?.address ?? ""}</Text>
       <MapView
         style={styles.map}
         initialRegion={{
@@ -94,9 +93,9 @@ export default function Map({ onLocationDecided, end }: props) {
             longitude: location?.longitude || 130.39915522048497,
           }}
         />
-        {areas.length > 0 && (
+        {current && (
           <Polygon
-            coordinates={areas[index].geometry}
+            coordinates={current.geometry}
             strokeColor="rgba(9, 255, 0, 0.5)"
             fillColor="rgba(0, 255, 42, 0.2)"
             strokeWidth={2}
@@ -108,7 +107,7 @@ export default function Map({ onLocationDecided, end }: props) {
         onPress={() => setIndex((prev) => (prev + 1) % areas.length)}
         disabled={areas.length === 0}
       />
-      <Button title="submit" onPress={onPress} disabled={areas.length === 0} />
+      <Button title="submit" onPress={onPress} disabled={current === null} />
     </View>
   );
 }
@@ -116,6 +115,10 @@ export default function Map({ onLocationDecided, end }: props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
+  },
+  text: {
+    color: Colors.text,
   },
   map: {
     flex: 1,
