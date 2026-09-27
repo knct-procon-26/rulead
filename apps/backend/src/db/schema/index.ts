@@ -10,3 +10,4 @@ export * from "./ruleTranslations";
 export * from "./reports";
 export * from "./keywords";
 export * from "./ruleKeywords";
+export * from "./osmAreas";

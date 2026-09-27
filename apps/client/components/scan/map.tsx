@@ -37,14 +37,16 @@ export default function Map({ onLocationDecided, end }: props) {
   const getArea = async (latitude: number, longitude: number) => {
     try {
       const result = await reverseGeocode(latitude, longitude);
-      const areas = result.elements.map((element) => ({
-        geometry: element.geometry.map((point) => ({
-          latitude: point.lat,
-          longitude: point.lon,
-        })),
-        name: element.tags.name || element.tags["name:en"] || "",
+      if (result.areas.length === 0) {
+        await end("No park was found at your current location.");
+        return;
+      }
+      const areas = result.areas.map((area) => ({
+        geometry: area.geometry,
+        name: area.name,
         address: result.address,
       }));
+      setIndex(0);
       setAreas(areas);
     } catch (error) {
       await end("Failed to retrieve area information.");

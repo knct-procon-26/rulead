@@ -13,6 +13,7 @@ import collection from "./collection";
 import translateRule from "./translateRules";
 import report from "./report";
 import parksRoute from "./parksNearby";
+import areasRoute from "./areas";
 
 const authRoutes = new Hono().route("/register", register);
 
@@ -33,6 +34,7 @@ const apiRoutes = new Hono<AuthContext>()
   .route("/translate", translateRule)
   .route("/report", report)
   .route("/parks", parksRoute)
+  .route("/areas", areasRoute)
   .onError((err, c) => {
     console.error(err);
     if (err instanceof HTTPException)
