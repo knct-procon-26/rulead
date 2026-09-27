@@ -43,8 +43,6 @@ class Park(
     val rulesJson: String = "[]",
     val geometryJson: String = "",
 ) {
-    val displayName: String get() = name.ifEmpty { "公園" }
-
     private var minLat = Double.POSITIVE_INFINITY
     private var maxLat = Double.NEGATIVE_INFINITY
     private var minLng = Double.POSITIVE_INFINITY

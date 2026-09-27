@@ -1,5 +1,6 @@
 import Debug from "@/constants/Debug";
 import { api } from "@/lib/client";
+import { getT } from "@/lib/i18n";
 import * as Location from "expo-location";
 import { Alert } from "react-native";
 
@@ -108,13 +109,23 @@ export async function reverseGeocode(
   };
 }
 
+const LOCATION_PERMISSION_ERROR = "E_LOCATION_PERMISSION";
+
+export function isLocationPermissionError(e: unknown): boolean {
+  return (e as { code?: unknown } | null)?.code === LOCATION_PERMISSION_ERROR;
+}
+
 export async function getCurrentLocation(): Promise<{
   latitude: number;
   longitude: number;
 }> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
-    throw new Error("位置情報へのアクセスが許可されていない");
+    const err = new Error(getT().common.locationNotAllowed) as Error & {
+      code: string;
+    };
+    err.code = LOCATION_PERMISSION_ERROR;
+    throw err;
   }
   const location = await Location.getCurrentPositionAsync({});
   return {
@@ -123,11 +134,33 @@ export async function getCurrentLocation(): Promise<{
   };
 }
 
+const NOT_A_SIGN = "This is not rule sign.";
+
+export function apiErrorMessage(
+  status: number,
+  serverMessage?: unknown,
+): string {
+  const t = getT();
+  const detail = typeof serverMessage === "string" ? serverMessage.trim() : "";
+  if (status === 429) return t.errors.rateLimited;
+  if (status === 403) return t.errors.blocked;
+  if (status >= 500) return t.errors.server;
+  if (detail === NOT_A_SIGN) return t.errors.notASign;
+  return detail === ""
+    ? t.errors.requestFailed
+    : `${t.errors.requestFailed}\n(${detail})`;
+}
+
+export function networkErrorMessage(): string {
+  return getT().errors.network;
+}
+
 export async function viewError(message: string) {
   return new Promise((resolve) => {
-    Alert.alert("error", message, [
+    const t = getT();
+    Alert.alert(t.common.errorTitle, message, [
       {
-        text: "OK",
+        text: t.common.ok,
         onPress: () => {
           resolve(true);
         },

@@ -21,6 +21,7 @@ import { useFocusEffect } from "expo-router";
 import Colors from "@/constants/Colors";
 import Debug from "@/constants/Debug";
 import { api, resetToken } from "@/lib/client";
+import { useT } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language";
 import { applyCameraWatchSetting, endOuting } from "@/lib/outing";
 import { setCameraWatchEnabled, useCameraWatchEnabled } from "@/lib/settings";
@@ -48,17 +49,10 @@ const isAndroid = Platform.OS === "android";
 const VERSION = Constants.expoConfig?.version ?? "?";
 const DEBUG_UNLOCK_TAPS = 7;
 
-const LOCATION_LABEL: Record<ParkTracker.PermissionStatus["location"], string> =
-  {
-    precise: "許可（正確な位置）",
-    approximate: "おおよその位置のみ",
-    denied: "許可されていません",
-    blocked: "許可されていません（設定から変更）",
-  };
-
 export default function YouTab() {
   const [language, setLanguage] = useLanguage();
   const cameraWatch = useCameraWatchEnabled();
+  const t = useT();
   const [me, setMe] = useState<Me | null>(null);
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [showDebug, setShowDebug] = useState(Debug.showDebugTools);
@@ -121,10 +115,7 @@ export default function YouTab() {
     try {
       const ok = await applyCameraWatchSetting(enabled);
       if (!ok) {
-        Alert.alert(
-          "カメラの許可が必要です",
-          "外出中にカメラで見守るには、カメラの使用を許可してください。次に外出を始めたときにも確認します。",
-        );
+        Alert.alert(t.you.cameraPermissionTitle, t.you.cameraPermissionMessage);
       }
     } catch (e) {
       console.warn(e);
@@ -147,22 +138,22 @@ export default function YouTab() {
 
   const onClearLocal = () =>
     Alert.alert(
-      "端末の記録を消しますか？",
-      "この端末に保存している、訪れた公園・公園の中での位置・カメラで見えたもの・ルールの通知の記録を消します（日記が空になります）。コレクションは消えません。",
+      t.you.clearLocalTitle,
+      t.you.clearLocalMessage,
       [
-        { text: "キャンセル", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         {
-          text: "消す",
+          text: t.you.clearLocalConfirm,
           style: "destructive",
           onPress: async () => {
             if (accountBusy) return;
             setAccountBusy(true);
             try {
               await clearLocalRecords();
-              Alert.alert("端末の記録を消しました");
+              Alert.alert(t.you.clearLocalDone);
             } catch (e) {
               console.warn(e);
-              Alert.alert("消せませんでした", String(e));
+              Alert.alert(t.you.clearLocalFailed, String(e));
             } finally {
               if (mounted.current) setAccountBusy(false);
             }
@@ -188,16 +179,10 @@ export default function YouTab() {
       await resetToken();
       if (isAndroid) await clearLocalRecords().catch((e) => console.warn(e));
       if (mounted.current) setMe(null);
-      Alert.alert(
-        "アカウントを削除しました",
-        "コレクションなどのデータを消しました。次にアプリを使うと、新しいアカウントで始まります。",
-      );
+      Alert.alert(t.you.deleteDoneTitle, t.you.deleteDoneMessage);
     } catch (e) {
       console.warn(e);
-      Alert.alert(
-        "削除できませんでした",
-        "通信できる場所で、もう一度お試しください。",
-      );
+      Alert.alert(t.you.deleteFailed, t.common.tryAgainOnline);
     } finally {
       if (mounted.current) setAccountBusy(false);
       loadDevice();
@@ -206,11 +191,11 @@ export default function YouTab() {
 
   const onDeleteAccount = () =>
     Alert.alert(
-      "アカウントを削除しますか？",
-      "コレクション・報告・ルールの確認の回答をサーバーから消し、この端末の記録も消します。元に戻せません。\n\nあなたが登録した公園とルールは、みんなのデータとして（あなたとは結びつかない形で）残ります。",
+      t.you.deleteTitle,
+      t.you.deleteMessage,
       [
-        { text: "キャンセル", style: "cancel" },
-        { text: "削除する", style: "destructive", onPress: deleteAccount },
+        { text: t.common.cancel, style: "cancel" },
+        { text: t.you.deleteConfirm, style: "destructive", onPress: deleteAccount },
       ],
     );
 
@@ -220,34 +205,30 @@ export default function YouTab() {
     setTaps(next);
     if (next >= DEBUG_UNLOCK_TAPS) {
       setShowDebug(true);
-      Alert.alert("開発者向けの項目を表示しました");
+      Alert.alert(t.you.debugUnlocked);
     }
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Section title="設定">
-        <Row label="ルールを表示する言語">
+      <Section title={t.you.settings}>
+        <Row label={t.you.language}>
           <LanguagePicker value={language} onChange={setLanguage} />
         </Row>
-        <Text style={styles.note}>
-          公園のルールと、外出中の通知の言語が変わります（通知は次に公園の情報を取得したときから）。
-        </Text>
+        <Text style={styles.note}>{t.you.languageNote}</Text>
         {isAndroid ? (
           <>
-            <Row label="外出中のカメラでの見守り">
+            <Row label={t.you.cameraWatchSetting}>
               <Switch
                 value={cameraWatch}
                 onValueChange={onToggleCameraWatch}
                 disabled={cameraBusy}
               />
             </Row>
-            <Text style={styles.note}>
-              オフにすると、公園でカメラを使わず、公園に入ったときの通知だけになります。
-            </Text>
+            <Text style={styles.note}>{t.you.cameraWatchNote}</Text>
             <View style={styles.buttons}>
               <SmallButton
-                label="通知の設定を開く"
+                label={t.you.openNotificationSettings}
                 onPress={() =>
                   ParkTracker.openAppSettings().catch((e) => console.warn(e))
                 }
@@ -258,58 +239,64 @@ export default function YouTab() {
       </Section>
 
       {isAndroid ? (
-        <Section title="外出と権限">
+        <Section title={t.you.statusSection}>
           {device === null ? (
             <ActivityIndicator color={Colors.mutedText} />
           ) : (
             <>
-              <Row label="外出">
+              <Row label={t.you.outing}>
                 <Text style={styles.value}>
                   {device.tracking
                     ? device.running
-                      ? "外出中"
-                      : "外出中（記録が止まっています。アプリを開くと再開します）"
-                    : "していない"}
+                      ? t.you.outingActive
+                      : t.you.outingPaused
+                    : t.you.outingInactive}
                 </Text>
               </Row>
-              <Row label="カメラでの見守り">
+              <Row label={t.you.cameraWatch}>
                 <Text style={styles.value}>
                   {device.watch.running
                     ? device.watch.cameraActive
-                      ? `見守り中（${device.watch.parkName || "公園"}）`
-                      : "待機中（ルールのある公園に入ると開始）"
-                    : "停止"}
+                      ? t.you.watchActive(
+                          device.watch.parkName || t.common.park,
+                        )
+                      : t.you.watchWaiting
+                    : t.you.watchStopped}
                 </Text>
               </Row>
-              <Row label="位置情報">
+              <Row label={t.you.location}>
                 <Text style={styles.value}>
-                  {LOCATION_LABEL[device.permissions.location]}
+                  {t.you.locationStatus[device.permissions.location]}
                 </Text>
               </Row>
-              <Row label="バックグラウンドの位置">
+              <Row label={t.you.backgroundLocation}>
                 <Text style={styles.value}>
-                  {device.permissions.background ? "常に許可" : "許可なし"}
+                  {device.permissions.background
+                    ? t.you.alwaysAllowed
+                    : t.you.notAllowed}
                 </Text>
               </Row>
-              <Row label="通知">
+              <Row label={t.you.notifications}>
                 <Text style={styles.value}>
-                  {device.permissions.notifications ? "許可" : "許可なし"}
+                  {device.permissions.notifications
+                    ? t.you.allowed
+                    : t.you.notAllowed}
                 </Text>
               </Row>
-              <Row label="カメラ">
+              <Row label={t.you.camera}>
                 <Text style={styles.value}>
-                  {device.camera ? "許可" : "許可なし"}
+                  {device.camera ? t.you.allowed : t.you.notAllowed}
                 </Text>
               </Row>
               <View style={styles.buttons}>
                 <SmallButton
-                  label="アプリの設定を開く"
+                  label={t.you.openAppSettings}
                   onPress={() =>
                     ParkTracker.openAppSettings().catch((e) => console.warn(e))
                   }
                 />
                 <SmallButton
-                  label="電池の最適化の設定"
+                  label={t.you.batterySettings}
                   onPress={() =>
                     ParkTracker.openBatterySettings().catch((e) =>
                       console.warn(e),
@@ -317,52 +304,39 @@ export default function YouTab() {
                   }
                 />
               </View>
-              <Text style={styles.note}>
-                外出中に記録が止まりやすい場合は、電池の最適化の対象から rulead
-                を外してください。
-              </Text>
+              <Text style={styles.note}>{t.you.batteryNote}</Text>
             </>
           )}
         </Section>
       ) : null}
 
-      <Section title="プライバシー">
+      <Section title={t.you.privacy}>
         <Text style={styles.body}>
-          ・外出中は、現在地をサーバーに送りません。まわりの公園を取得するときに、約1km四方の区画の中心だけを送ります。どの公園にいるかは端末の中だけで判定します。
-          {"\n"}
-          ・外出中のカメラの映像は端末の中だけで調べ、画像は保存も送信もしません。見えたもの（「犬」などの名前）だけを日記用に端末に記録します。
-          {"\n"}
-          ・看板を登録するときは、看板の写真・現在地・公園の範囲をサーバーに送ります（公園の範囲を調べるために、現在地を地図サービスにも送ります）。
-          {"\n"}
-          ・「報告」を送ると、どの公園のどのルールかがサーバーに送られます。
-          {"\n"}
-          ・ルールの翻訳のため、表示しているルールと言語がサーバーに送られます。
+          {t.you.privacyText}
         </Text>
       </Section>
 
-      <Section title="アカウントとデータ">
+      <Section title={t.you.accountSection}>
         <View style={styles.buttons}>
           {isAndroid ? (
             <SmallButton
-              label="端末の記録を消す"
+              label={t.you.clearLocal}
               onPress={onClearLocal}
               disabled={accountBusy}
             />
           ) : null}
           <SmallButton
-            label="アカウントを削除する"
+            label={t.you.deleteAccount}
             onPress={onDeleteAccount}
             disabled={accountBusy}
             danger
           />
         </View>
-        <Text style={styles.note}>
-          アカウントを削除すると、コレクションなどのデータがサーバーから消え、次に使うときは新しいアカウントで始まります。
-        </Text>
+        <Text style={styles.note}>{t.you.deleteNote}</Text>
       </Section>
 
       <Pressable onPress={onVersionTap} style={styles.version}>
-        <Text style={styles.versionText}>rulead バージョン {VERSION}</Text>
+        <Text style={styles.versionText}>{t.you.version(VERSION)}</Text>
       </Pressable>
 
       {showDebug ? <DebugSection me={me} onChanged={reload} /> : null}

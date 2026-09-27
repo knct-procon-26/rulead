@@ -6,6 +6,7 @@ import {
   type LatLngLike,
 } from "@/components/scan/polygon";
 import type { ScannedRule } from "@/components/rules/types";
+import type { Messages } from "@/lib/i18n";
 
 export type SearchPark = {
   id: string;
@@ -97,10 +98,11 @@ export async function fetchParksAround(
   return parseParks(body, here);
 }
 
-export function formatDistance(m: number): string {
-  if (m <= 0) return "今いる公園";
-  if (m < 1000) return `約${Math.max(10, Math.round(m / 10) * 10)}m`;
-  return `約${(m / 1000).toFixed(1)}km`;
+export function formatDistance(t: Messages, m: number): string {
+  if (m <= 0) return t.ruleSearch.distanceHere;
+  if (m < 1000)
+    return t.ruleSearch.distanceAbout(`${Math.max(10, Math.round(m / 10) * 10)}m`);
+  return t.ruleSearch.distanceAbout(`${(m / 1000).toFixed(1)}km`);
 }
 
 export function mapsUrl(p: LatLngLike): string {

@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/Colors";
+import { useT } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language";
 import { LanguagePicker } from "./LanguagePicker";
 import { ParkHeader } from "./ParkHeader";
@@ -27,14 +28,11 @@ type Props = {
   showDisclaimer?: boolean;
 };
 
-export const RULES_DISCLAIMER =
-  "※ ここに載っているのは、看板などから登録されたルールの一部です。載っていないことでも、してよいとは限りません。現地の看板・管理者の指示や、まわりの人への配慮を優先してください。";
-
 export function ParkRules({
   park,
   rules,
-  loadingText = "読み込み中…",
-  emptyText = "ルールがありません",
+  loadingText,
+  emptyText,
   footer,
   highlightRuleId,
   onReportRule,
@@ -42,6 +40,7 @@ export function ParkRules({
   showDisclaimer = true,
 }: Props) {
   const [language, setLanguage] = useLanguage();
+  const t = useT();
   const { textOf, status } = useTranslatedTexts(rules ?? [], language);
 
   return (
@@ -59,7 +58,7 @@ export function ParkRules({
                 pressed && styles.pressed,
               ]}
             >
-              <Text style={styles.reportText}>公園を報告</Text>
+              <Text style={styles.reportText}>{t.parkRules.reportPark}</Text>
             </Pressable>
           ) : null}
           {status === "loading" ? (
@@ -68,20 +67,22 @@ export function ParkRules({
           <LanguagePicker value={language} onChange={setLanguage} />
         </View>
         {status === "error" ? (
-          <Text style={styles.notice}>
-            翻訳できなかったため、原文（英語）で表示しています
-          </Text>
+          <Text style={styles.notice}>{t.parkRules.translationFailed}</Text>
         ) : null}
       </View>
 
       {rules === null ? (
         <View style={styles.placeholder}>
           <ActivityIndicator size="large" color={Colors.mutedText} />
-          <Text style={styles.placeholderText}>{loadingText}</Text>
+          <Text style={styles.placeholderText}>
+            {loadingText ?? t.common.loading}
+          </Text>
         </View>
       ) : rules.length === 0 ? (
         <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>{emptyText}</Text>
+          <Text style={styles.placeholderText}>
+            {emptyText ?? t.parkRules.noRules}
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -98,7 +99,7 @@ export function ParkRules({
                 title={text}
                 subtitle={
                   rule.keywords && rule.keywords.length > 0
-                    ? `Keyword: ${rule.keywords.join(", ")}`
+                    ? t.parkRules.keywords(rule.keywords.join(", "))
                     : undefined
                 }
                 highlighted={
@@ -109,14 +110,14 @@ export function ParkRules({
                     <Pressable
                       onPress={() => onReportRule(rule, text)}
                       accessibilityRole="button"
-                      accessibilityLabel="このルールを報告"
+                      accessibilityLabel={t.parkRules.reportRuleLabel}
                       hitSlop={8}
                       style={({ pressed }) => [
                         styles.reportRule,
                         pressed && styles.pressed,
                       ]}
                     >
-                      <Text style={styles.reportText}>報告</Text>
+                      <Text style={styles.reportText}>{t.parkRules.reportRule}</Text>
                     </Pressable>
                   ) : undefined
                 }
@@ -124,7 +125,7 @@ export function ParkRules({
             );
           })}
           {showDisclaimer ? (
-            <Text style={styles.disclaimer}>{RULES_DISCLAIMER}</Text>
+            <Text style={styles.disclaimer}>{t.parkRules.disclaimer}</Text>
           ) : null}
         </ScrollView>
       )}

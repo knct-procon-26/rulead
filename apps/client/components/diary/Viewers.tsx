@@ -16,6 +16,7 @@ import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-
 
 import Colors from "@/constants/Colors";
 import { formatTime } from "@/lib/diary";
+import { useT } from "@/lib/i18n";
 import type { Photo } from "@/lib/photos";
 import { DiaryMap, PARK_STROKE, TRACK_COLOR } from "./DiaryMap";
 import type { MapModalData } from "./DiaryPage";
@@ -28,6 +29,7 @@ export function MapModal({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const t = useT();
   return (
     <Modal
       visible={data !== null}
@@ -51,7 +53,7 @@ export function MapModal({
             <Pressable
               onPress={onClose}
               hitSlop={10}
-              accessibilityLabel="閉じる"
+              accessibilityLabel={t.common.close}
               style={styles.roundButton}
             >
               <MaterialDesignIcons name="close" size={24} color={Colors.text} />
@@ -59,11 +61,11 @@ export function MapModal({
           </View>
           <View style={[styles.mapLegend, { bottom: insets.bottom + 16 }]}>
             <View style={[styles.legendSwatch, { borderColor: PARK_STROKE }]} />
-            <Text style={styles.legendText}>公園の範囲</Text>
+            <Text style={styles.legendText}>{t.diary.legendPark}</Text>
             <View
               style={[styles.legendLine, { backgroundColor: TRACK_COLOR }]}
             />
-            <Text style={styles.legendText}>歩いた道</Text>
+            <Text style={styles.legendText}>{t.diary.legendTrack}</Text>
           </View>
         </View>
       ) : null}
@@ -82,6 +84,7 @@ export function PhotoViewer({
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const t = useT();
   const count = photos?.length ?? 0;
   const start = count === 0 ? 0 : Math.min(Math.max(index, 0), count - 1);
   const [current, setCurrent] = useState(start);
@@ -146,7 +149,11 @@ export function PhotoViewer({
               ? `${Math.min(current, count - 1) + 1} / ${count}　${formatTime(photo.takenAt)}`
               : ""}
           </Text>
-          <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="閉じる">
+          <Pressable
+            onPress={onClose}
+            hitSlop={10}
+            accessibilityLabel={t.common.close}
+          >
             <MaterialDesignIcons name="close" size={28} color="#fff" />
           </Pressable>
         </View>

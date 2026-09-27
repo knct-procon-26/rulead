@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import Colors from "@/constants/Colors";
+import { useT } from "@/lib/i18n";
 
 export type SortOption<T extends string> = { value: T; label: string };
 
@@ -17,6 +18,7 @@ export function SortPicker<T extends string>({
   onChange,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const current = options.find((o) => o.value === value) ?? options[0];
 
   const choose = (next: T) => {
@@ -30,7 +32,7 @@ export function SortPicker<T extends string>({
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={`並べ替え: ${current?.label ?? ""}`}
+        accessibilityLabel={`${t.collection.sortTitle}: ${current?.label ?? ""}`}
       >
         <MaterialDesignIcons name="sort" size={20} color={Colors.subText} />
         <Text style={styles.buttonText} numberOfLines={1}>
@@ -53,10 +55,10 @@ export function SortPicker<T extends string>({
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => setOpen(false)}
-            accessibilityLabel="Close"
+            accessibilityLabel={t.common.close}
           />
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>並べ替え</Text>
+            <Text style={styles.sheetTitle}>{t.collection.sortTitle}</Text>
             {options.map((o) => {
               const selected = o.value === value;
               return (

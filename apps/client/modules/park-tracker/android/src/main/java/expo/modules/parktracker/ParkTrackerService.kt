@@ -169,6 +169,7 @@ class ParkTrackerService : Service() {
 
         // startForegroundService で起動されたら、何よりも先に startForeground を呼ぶ（呼ばないとアプリが落ちる）
         try {
+            createChannels() // 言語が変わっていたらチャンネル名も更新する
             val notification = buildTrackingNotification()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(FG_NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
@@ -530,18 +531,18 @@ class ParkTrackerService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
-            NotificationChannel(CH_TRACKING, "位置情報の記録", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CH_TRACKING, UiTexts.get(this, "channelTracking"), NotificationManager.IMPORTANCE_LOW),
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_ENTER, "公園に入ったとき", NotificationManager.IMPORTANCE_HIGH),
+            NotificationChannel(CH_ENTER, UiTexts.get(this, "channelEnter"), NotificationManager.IMPORTANCE_HIGH),
         )
     }
 
     private fun buildTrackingNotification() =
         NotificationCompat.Builder(this, CH_TRACKING)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation) // 本番では自前の白抜きモノクロアイコン（R.drawable.xxx）に差し替える
-            .setContentTitle("近くの公園をチェック中")
-            .setContentText("公園に入ると通知します")
+            .setContentTitle(UiTexts.get(this, "trackingTitle"))
+            .setContentText(UiTexts.get(this, "trackingText"))
             .setOngoing(true)
             .setContentIntent(AppLinks.rulesPendingIntent(this, 0, null))
             .build()
@@ -552,8 +553,8 @@ class ParkTrackerService : Service() {
         if (!nm.areNotificationsEnabled()) return
         val n = NotificationCompat.Builder(this, CH_TRACKING)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("おかえりなさい")
-            .setContentText("出発した場所の近くに戻ったので、外出を終えました")
+            .setContentTitle(UiTexts.get(this, "outingEndedTitle"))
+            .setContentText(UiTexts.get(this, "outingEndedText"))
             .setAutoCancel(true)
             .setContentIntent(AppLinks.rulesPendingIntent(this, OUTING_END_NOTIFICATION_ID, null))
             .build()
@@ -572,15 +573,15 @@ class ParkTrackerService : Service() {
         val featured = WatchConfig.pickFeatured(WatchConfig.parseRulesOrEmpty(park.rulesJson))
         val builder = NotificationCompat.Builder(this, CH_ENTER)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("${park.displayName}に入りました")
+            .setContentTitle(UiTexts.get(this, "enteredTitle", "park" to UiTexts.parkName(this, park.name)))
         if (featured != null) {
             val text = featured.displayText
             builder
                 .setContentText(text)
-                .setStyle(NotificationCompat.BigTextStyle().bigText("$text\nタップしてほかのルールも確認"))
+                .setStyle(NotificationCompat.BigTextStyle().bigText("$text\n${UiTexts.get(this, "enteredMore")}"))
             RuleIconBitmap.forRule(this, featured)?.let { builder.setLargeIcon(it) }
         } else {
-            builder.setContentText("タップしてルールを確認")
+            builder.setContentText(UiTexts.get(this, "enteredNoRule"))
         }
         val n = builder
             .setAutoCancel(true)

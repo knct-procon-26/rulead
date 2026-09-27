@@ -4,6 +4,8 @@ export type TrackerOptions = {
   headers?: Record<string, string>;
 
   outing?: boolean;
+
+  texts?: Record<string, string>;
 };
 
 export type OutingStatus = {

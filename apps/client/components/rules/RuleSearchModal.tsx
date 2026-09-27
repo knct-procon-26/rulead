@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/Colors";
+import { useT } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language";
-import { getCurrentLocation } from "@/lib/utility";
+import { getCurrentLocation, isLocationPermissionError } from "@/lib/utility";
 import {
   fetchParksAround,
   formatDistance,
@@ -22,7 +23,6 @@ import {
 } from "@/lib/nearbySearch";
 import { RuleRow } from "./RuleRow";
 import { RuleIcon } from "./RuleIcon";
-import { RULES_DISCLAIMER } from "./ParkRules";
 import type { ScannedRule } from "./types";
 import { useTranslatedTexts } from "./useTranslatedTexts";
 
@@ -34,7 +34,7 @@ type Props = {
 
 type Load =
   | { status: "loading" }
-  | { status: "error"; message: string }
+  | { status: "error"; reason: "permission" | "failed" }
   | { status: "ready"; parks: SearchPark[] };
 
 type RuleEntry = { rule: ScannedRule; parkCount: number; priority: boolean };
@@ -44,6 +44,7 @@ export function RuleSearchModal({ visible, onClose, priorityRuleIds }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [language] = useLanguage();
+  const t = useT();
   const seq = useRef(0);
   const insets = useSafeAreaInsets();
 
@@ -60,10 +61,7 @@ export function RuleSearchModal({ visible, onClose, priorityRuleIds }: Props) {
       if (id !== seq.current) return;
       setLoad({
         status: "error",
-        message:
-          e instanceof Error && e.message.includes("許可")
-            ? "位置情報の使用が許可されていません。"
-            : "近くの公園を読み込めませんでした。通信できる場所で、もう一度お試しください。",
+        reason: isLocationPermissionError(e) ? "permission" : "failed",
       });
     }
   }, []);
@@ -161,24 +159,28 @@ export function RuleSearchModal({ visible, onClose, priorityRuleIds }: Props) {
               hitSlop={8}
               accessibilityRole="button"
             >
-              <Text style={styles.headerLink}>‹ ルールを選び直す</Text>
+              <Text style={styles.headerLink}>{t.ruleSearch.back}</Text>
             </Pressable>
           ) : (
-            <Text style={styles.title}>近くの公園をルールで探す</Text>
+            <Text style={styles.title}>{t.ruleSearch.title}</Text>
           )}
           <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button">
-            <Text style={styles.headerLink}>閉じる</Text>
+            <Text style={styles.headerLink}>{t.common.close}</Text>
           </Pressable>
         </View>
 
         {load.status === "loading" ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={Colors.mutedText} />
-            <Text style={styles.muted}>近くの公園を読み込んでいます…</Text>
+            <Text style={styles.muted}>{t.ruleSearch.loading}</Text>
           </View>
         ) : load.status === "error" ? (
           <View style={styles.center}>
-            <Text style={styles.muted}>{load.message}</Text>
+            <Text style={styles.muted}>
+              {load.reason === "permission"
+                ? t.common.locationNotAllowed
+                : t.ruleSearch.loadFailed}
+            </Text>
             <Pressable
               onPress={reload}
               style={({ pressed }) => [
@@ -187,7 +189,7 @@ export function RuleSearchModal({ visible, onClose, priorityRuleIds }: Props) {
               ]}
               accessibilityRole="button"
             >
-              <Text style={styles.buttonText}>再読み込み</Text>
+              <Text style={styles.buttonText}>{t.common.reload}</Text>
             </Pressable>
           </View>
         ) : selected && results ? (
@@ -202,44 +204,40 @@ export function RuleSearchModal({ visible, onClose, priorityRuleIds }: Props) {
             </View>
 
             <Text style={styles.section}>
-              このルールがある公園（{results.withRule.length}）
+              {t.ruleSearch.parksWithRule(results.withRule.length)}
             </Text>
             {results.withRule.map((p) => (
               <ParkItem key={p.id} park={p} onPress={() => openMap(p)} />
             ))}
 
             <Text style={styles.section}>
-              このルールが登録されていない公園（{results.without.length}）
+              {t.ruleSearch.parksWithoutRule(results.without.length)}
             </Text>
-            <Text style={styles.caution}>
-              登録されていないだけで、実際にはこのルールがある公園も含まれます。行く前に現地の看板を確認してください。
-            </Text>
+            <Text style={styles.caution}>{t.ruleSearch.withoutCaution}</Text>
             {results.without.length === 0 ? (
-              <Text style={styles.muted}>ありません</Text>
+              <Text style={styles.muted}>{t.ruleSearch.none}</Text>
             ) : (
               results.without.map((p) => (
                 <ParkItem key={p.id} park={p} onPress={() => openMap(p)} />
               ))
             )}
-            <Text style={styles.disclaimer}>{RULES_DISCLAIMER}</Text>
+            <Text style={styles.disclaimer}>{t.parkRules.disclaimer}</Text>
           </ScrollView>
         ) : (
           <View style={styles.flex}>
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="ルールを絞り込む（例: 犬、ボール）"
+              placeholder={t.ruleSearch.filterPlaceholder}
               placeholderTextColor={Colors.mutedText}
               style={styles.input}
               clearButtonMode="while-editing"
             />
             <ScrollView contentContainerStyle={styles.content}>
               {entries.length === 0 ? (
-                <Text style={styles.muted}>
-                  近く（約1km）に、ルールが登録された公園がありません。
-                </Text>
+                <Text style={styles.muted}>{t.ruleSearch.noParksNearby}</Text>
               ) : filtered.length === 0 ? (
-                <Text style={styles.muted}>見つかりませんでした</Text>
+                <Text style={styles.muted}>{t.ruleSearch.noMatch}</Text>
               ) : (
                 filtered.map((e) => (
                   <Pressable
@@ -252,7 +250,7 @@ export function RuleSearchModal({ visible, onClose, priorityRuleIds }: Props) {
                       iconName={e.rule.iconName}
                       iconType={e.rule.iconType}
                       title={textOf(e.rule)}
-                      subtitle={`${e.priority ? "表示中の公園のルール・" : ""}近くの${e.parkCount}か所の公園にあり`}
+                      subtitle={t.ruleSearch.ruleSummary(e.priority, e.parkCount)}
                     />
                   </Pressable>
                 ))
@@ -272,6 +270,7 @@ function ParkItem({
   park: SearchPark;
   onPress: () => void;
 }) {
+  const t = useT();
   return (
     <Pressable
       onPress={onPress}
@@ -279,13 +278,15 @@ function ParkItem({
       style={({ pressed }) => [styles.park, pressed && styles.pressed]}
     >
       <View style={styles.flex}>
-        <Text style={styles.parkName}>{park.name || "名前のない公園"}</Text>
+        <Text style={styles.parkName}>{park.name || t.common.unnamedPark}</Text>
         <Text style={styles.parkSub}>
-          {formatDistance(park.distanceM)}・登録されたルール {park.rules.length}
-          件
+          {t.ruleSearch.parkSummary(
+            formatDistance(t, park.distanceM),
+            park.rules.length,
+          )}
         </Text>
       </View>
-      <Text style={styles.mapLink}>地図</Text>
+      <Text style={styles.mapLink}>{t.ruleSearch.map}</Text>
     </Pressable>
   );
 }

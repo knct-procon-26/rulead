@@ -127,6 +127,15 @@ class RuleWatchService : LifecycleService() {
             s.mainHandler.post { if (s.debugConfig == null) s.stopWith("tracker_stopped") }
         }
 
+        /** 通知の文言（UiTexts）が変わったとき。チャンネル名と常駐通知を今の言語で作り直す */
+        fun onTextsChanged() {
+            val s = current ?: return
+            s.mainHandler.post {
+                s.createChannels()
+                s.updateNotification()
+            }
+        }
+
         /** JS の stopRuleWatch() 用。動作中なら true */
         fun requestStop(): Boolean {
             val s = current ?: return false
@@ -609,10 +618,10 @@ class RuleWatchService : LifecycleService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
-            NotificationChannel(CH_WATCH, "カメラでの見守り", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CH_WATCH, UiTexts.get(this, "channelWatch"), NotificationManager.IMPORTANCE_LOW),
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_ALERT, "ルールに関係するものが映ったとき", NotificationManager.IMPORTANCE_HIGH),
+            NotificationChannel(CH_ALERT, UiTexts.get(this, "channelAlert"), NotificationManager.IMPORTANCE_HIGH),
         )
     }
 
@@ -630,16 +639,17 @@ class RuleWatchService : LifecycleService() {
         NotificationCompat.Builder(this, CH_WATCH)
             .setSmallIcon(android.R.drawable.ic_menu_camera) // 本番では自前の白抜きモノクロアイコンに差し替える
             .setContentTitle(
-                if (cfg != null) "${cfg.displayName}でルールを見守っています" else "外出中",
+                if (cfg != null) UiTexts.get(this, "watchingTitle", "park" to UiTexts.parkName(this, cfg.parkName))
+                else UiTexts.get(this, "watchIdleTitle"),
             )
             .setContentText(
-                if (cfg != null) "画像は端末内で処理され、保存・送信されません"
-                else "ルールが登録された公園に入ると、カメラでルールを見守ります",
+                if (cfg != null) UiTexts.get(this, "watchingText")
+                else UiTexts.get(this, "watchIdleText"),
             )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(AppLinks.rulesPendingIntent(this, RC_OPEN, cfg?.parkId))
-            .addAction(0, if (debug) "停止" else "外出を終える", stopPendingIntent())
+            .addAction(0, UiTexts.get(this, if (debug) "watchStop" else "endOuting"), stopPendingIntent())
             .build()
     }
 
@@ -657,14 +667,14 @@ class RuleWatchService : LifecycleService() {
     private fun notifyAlert(cfg: WatchConfig, rule: WatchRule, label: String) {
         val nm = NotificationManagerCompat.from(this)
         if (!nm.areNotificationsEnabled()) return // Android 13+ で通知が許可されていない
-        val title = "${cfg.displayName}のルールに注意"
+        val title = UiTexts.get(this, "alertTitle", "park" to UiTexts.parkName(this, cfg.parkName))
         // 本文は外出を始めたときに選んでいた言語の翻訳（無ければ英語の原文）
         val text = rule.displayText
-        val body = "$text\n「$label」が映りました・タップで詳細"
+        val body = "$text\n${UiTexts.get(this, "alertSeenTap", "label" to label)}"
         val builder = NotificationCompat.Builder(this, CH_ALERT)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(title)
-            .setContentText(text.ifEmpty { "「$label」が映りました" })
+            .setContentText(text.ifEmpty { UiTexts.get(this, "alertSeen", "label" to label) })
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
         // ルールのピクトグラムを大きいアイコンに（描けなければ付けない）
         RuleIconBitmap.forRule(this, rule)?.let { builder.setLargeIcon(it) }

@@ -4,7 +4,11 @@ import { useRef, useState } from "react";
 import Camera from "@/components/scan/camera";
 import Map, { Area } from "@/components/scan/map";
 import { api } from "@/lib/client";
-import { viewError } from "@/lib/utility";
+import {
+  apiErrorMessage,
+  networkErrorMessage,
+  viewError,
+} from "@/lib/utility";
 import Confirm from "@/components/scan/confirm";
 import { useRouter } from "expo-router";
 import Colors from "@/constants/Colors";
@@ -60,11 +64,11 @@ export default function ScanTab() {
         } else {
           const err = await res.json();
           if (scanId !== scanIdRef.current) return;
-          await end(err.error);
+          await end(apiErrorMessage(res.status, err.error));
         }
       } catch (error) {
         if (scanId !== scanIdRef.current) return;
-        await end("Failed to connect with API.");
+        await end(networkErrorMessage());
       }
     })();
   };
@@ -102,10 +106,10 @@ export default function ScanTab() {
         }
       } else {
         const err = await res.json();
-        await end(err.error);
+        await end(apiErrorMessage(res.status, err.error));
       }
     } catch {
-      await end("Failed to connect with API.");
+      await end(networkErrorMessage());
     } finally {
       submittingRef.current = false;
     }

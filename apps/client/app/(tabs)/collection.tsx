@@ -8,7 +8,12 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { api } from "@/lib/client";
-import { viewError } from "@/lib/utility";
+import {
+  apiErrorMessage,
+  networkErrorMessage,
+  viewError,
+} from "@/lib/utility";
+import { useT } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language";
 import Colors from "@/constants/Colors";
 import { RuleRow } from "@/components/rules/RuleRow";
@@ -41,13 +46,13 @@ function chooseBadge(count: number, lastCollectedAt: number): Badge {
 
 type SortKey = "recent" | "oldest" | "rarest" | "commonest" | "most" | "fewest";
 
-const SORT_OPTIONS: readonly SortOption<SortKey>[] = [
-  { value: "recent", label: "新しい順" },
-  { value: "oldest", label: "古い順" },
-  { value: "rarest", label: "レア順" },
-  { value: "commonest", label: "レアじゃない順" },
-  { value: "most", label: "多い順" },
-  { value: "fewest", label: "少ない順" },
+const SORT_KEYS: readonly SortKey[] = [
+  "recent",
+  "oldest",
+  "rarest",
+  "commonest",
+  "most",
+  "fewest",
 ];
 
 type Compare = (a: CollectedRule, b: CollectedRule) => number;
@@ -98,6 +103,11 @@ export default function CollectionTab() {
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [language, setLanguage] = useLanguage();
   const { textOf } = useTranslatedTexts(rules ?? [], language);
+  const t = useT();
+  const sortOptions = useMemo<readonly SortOption<SortKey>[]>(
+    () => SORT_KEYS.map((key) => ({ value: key, label: t.collection.sort[key] })),
+    [t],
+  );
 
   const sortedRules = useMemo(
     () => (rules === null ? null : [...rules].sort(COMPARATORS[sortKey])),
@@ -118,7 +128,7 @@ export default function CollectionTab() {
             const err = await res.json();
             if (cancelled) return;
             setFailed(true);
-            await viewError(err.error);
+            await viewError(apiErrorMessage(res.status, err.error));
             return;
           }
           const data = await res.json();
@@ -140,7 +150,7 @@ export default function CollectionTab() {
         } catch {
           if (cancelled) return;
           setFailed(true);
-          await viewError("Failed to connect with API.");
+          await viewError(networkErrorMessage());
         }
       })();
 
@@ -154,9 +164,7 @@ export default function CollectionTab() {
     return (
       <View style={styles.center}>
         {failed ? (
-          <Text style={styles.empty}>
-            読み込めませんでした。{"\n"}タブを開き直すと再読み込みします。
-          </Text>
+          <Text style={styles.empty}>{t.collection.loadFailed}</Text>
         ) : (
           <ActivityIndicator size="large" color={Colors.mutedText} />
         )}
@@ -168,18 +176,18 @@ export default function CollectionTab() {
     <View style={styles.container}>
       <View style={styles.stats}>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>撮影した看板</Text>
+          <Text style={styles.statLabel}>{t.collection.signs}</Text>
           <Text style={styles.statValue}>{signCount ?? "-"}</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>訪れた公園</Text>
+          <Text style={styles.statLabel}>{t.collection.parks}</Text>
           <Text style={styles.statValue}>{parkCount ?? "-"}</Text>
         </View>
       </View>
       <View style={styles.toolbar}>
         <SortPicker
           value={sortKey}
-          options={SORT_OPTIONS}
+          options={sortOptions}
           onChange={setSortKey}
         />
         <LanguagePicker value={language} onChange={setLanguage} />
@@ -190,10 +198,7 @@ export default function CollectionTab() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            まだコレクションがありません。{"\n"}
-            看板を撮影してどんどんルールを集めましょう！
-          </Text>
+          <Text style={styles.empty}>{t.collection.empty}</Text>
         }
         renderItem={({ item }) => {
           const badge = chooseBadge(item.count, item.lastCollectedAt);
@@ -205,7 +210,7 @@ export default function CollectionTab() {
               title={textOf(item)}
               subtitle={
                 total > 0
-                  ? `全体の ${((item.total / total) * 100).toFixed(1)}%`
+                  ? t.collection.share(((item.total / total) * 100).toFixed(1))
                   : undefined
               }
               style={look ? styles.rowInCard : undefined}

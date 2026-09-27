@@ -24,6 +24,10 @@ export type LabelCategory =
 
 export type MlkitLabel = { en: string; ja: string; category: LabelCategory };
 
+export function labelText(label: MlkitLabel, uiLocale: string): string {
+  return uiLocale === "ja" ? label.ja : label.en;
+}
+
 export const MLKIT_LABELS: Readonly<Record<number, MlkitLabel>> = {
   0: { en: "Team", ja: "チーム", category: "PEOPLE" },
   1: { en: "Bonfire", ja: "たき火", category: "NATURE" },

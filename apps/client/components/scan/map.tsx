@@ -1,5 +1,6 @@
 import { api } from "@/lib/client";
 import { getCurrentLocation, reverseGeocode } from "@/lib/utility";
+import { getT, useT } from "@/lib/i18n";
 import Colors from "@/constants/Colors";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -167,33 +168,25 @@ function pickCandidate(
   return null;
 }
 
-type Issue = { message: string; isError: boolean };
+type IssueKind = "needPoints" | "crossing" | "tooSmall" | "tooLarge" | "tooFar";
+type Issue = { kind: IssueKind; isError: boolean };
 
 function manualIssue(vertices: Vertex[], here: LatLng): Issue | null {
   if (vertices.length < 3) {
-    return {
-      message: "地図をタップして、公園を囲むように点を置いてください",
-      isError: false,
-    };
+    return { kind: "needPoints", isError: false };
   }
   if (!isSimpleRing(vertices)) {
-    return {
-      message: "線が交差しています。点を動かすか消してください",
-      isError: true,
-    };
+    return { kind: "crossing", isError: true };
   }
   const area = areaM2(vertices);
   if (area < MIN_MANUAL_AREA_M2) {
-    return { message: "範囲が狭すぎます", isError: true };
+    return { kind: "tooSmall", isError: true };
   }
   if (area > MAX_MANUAL_AREA_M2) {
-    return {
-      message: "範囲が広すぎます。公園の中だけを囲んでください",
-      isError: true,
-    };
+    return { kind: "tooLarge", isError: true };
   }
   if (distanceToRingM(vertices, here) > MAX_DISTANCE_FROM_HERE_M) {
-    return { message: "今いる場所の近くを囲んでください", isError: true };
+    return { kind: "tooFar", isError: true };
   }
   return null;
 }
@@ -213,6 +206,7 @@ export default function Map({ onLocationDecided, end }: Props) {
   const [vertices, setVertices] = useState<Vertex[]>([]);
   const [name, setName] = useState("");
   const [mapReady, setMapReady] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -227,7 +221,7 @@ export default function Map({ onLocationDecided, end }: Props) {
         const here = await getCurrentLocation();
         if (mountedRef.current) setLocation(here);
       } catch {
-        if (mountedRef.current) await end("位置情報を取得できませんでした。");
+        if (mountedRef.current) await end(getT().scanMap.locationFailed);
       }
     })();
   }, []);
@@ -285,7 +279,7 @@ export default function Map({ onLocationDecided, end }: Props) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color={Colors.tint} />
-        <Text style={styles.subText}>現在地を取得しています…</Text>
+        <Text style={styles.subText}>{t.scanMap.locating}</Text>
       </View>
     );
   }
@@ -426,7 +420,7 @@ export default function Map({ onLocationDecided, end }: Props) {
               onPress={() => setVertices((prev) => prev.slice(0, -1))}
               disabled={vertices.length === 0}
               accessibilityRole="button"
-              accessibilityLabel="1つ戻す"
+              accessibilityLabel={t.scanMap.undo}
             >
               <MaterialDesignIcons name="undo" size={22} color="#212529" />
             </Pressable>
@@ -439,7 +433,7 @@ export default function Map({ onLocationDecided, end }: Props) {
               onPress={() => setVertices([])}
               disabled={vertices.length === 0}
               accessibilityRole="button"
-              accessibilityLabel="全部消す"
+              accessibilityLabel={t.scanMap.clearAll}
             >
               <MaterialDesignIcons
                 name="delete-outline"
@@ -461,26 +455,24 @@ export default function Map({ onLocationDecided, end }: Props) {
         {searching ? (
           <View style={styles.searching}>
             <ActivityIndicator color={Colors.tint} />
-            <Text style={styles.subText}>公園を探しています…</Text>
+            <Text style={styles.subText}>{t.scanMap.searching}</Text>
           </View>
         ) : manual ? (
           <View style={styles.info}>
             <Text style={styles.title}>
-              {lookupFailed
-                ? "公園の情報を取得できませんでした"
-                : "この場所の公園が見つかりませんでした"}
+              {lookupFailed ? t.scanMap.lookupFailed : t.scanMap.notFound}
             </Text>
             <Text
               style={[styles.subText, issue?.isError && styles.error]}
               numberOfLines={2}
             >
-              {issue?.message ?? "この範囲でよければ決定してください"}
+              {issue ? t.scanMap.issues[issue.kind] : t.scanMap.readyToSubmit}
             </Text>
             <TextInput
               style={styles.nameInput}
               value={name}
               onChangeText={setName}
-              placeholder="公園の名前（任意）"
+              placeholder={t.scanMap.namePlaceholder}
               placeholderTextColor={Colors.mutedText}
               maxLength={MAX_NAME_LENGTH}
               returnKeyType="done"
@@ -489,7 +481,7 @@ export default function Map({ onLocationDecided, end }: Props) {
         ) : (
           <View style={styles.info}>
             <Text style={styles.title} numberOfLines={1}>
-              {candidate?.name || "名前のない公園"}
+              {candidate?.name || t.common.unnamedPark}
             </Text>
             {candidate?.address ? (
               <Text style={styles.subText} numberOfLines={1}>
@@ -516,7 +508,7 @@ export default function Map({ onLocationDecided, end }: Props) {
               size={18}
               color="#ffffff"
             />
-            <Text style={styles.buttonText}>撮り直す</Text>
+            <Text style={styles.buttonText}>{t.scanMap.retake}</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [
@@ -531,7 +523,7 @@ export default function Map({ onLocationDecided, end }: Props) {
             accessibilityState={{ disabled: !canSubmit }}
           >
             <MaterialDesignIcons name="check" size={18} color="#ffffff" />
-            <Text style={styles.buttonText}>この公園で決定</Text>
+            <Text style={styles.buttonText}>{t.scanMap.decide}</Text>
           </Pressable>
         </View>
       </View>

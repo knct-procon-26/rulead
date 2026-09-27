@@ -23,6 +23,7 @@ import { ParkRules } from "@/components/rules/ParkRules";
 import { RuleSearchModal } from "@/components/rules/RuleSearchModal";
 import { scannedToDisplay, type ScannedRule } from "@/components/rules/types";
 import { endOuting, ensureOuting, startOuting } from "@/lib/outing";
+import { useT, type Messages } from "@/lib/i18n";
 import { promptReportPark, promptReportRule } from "@/lib/report";
 import { useCameraWatchEnabled } from "@/lib/settings";
 
@@ -35,14 +36,11 @@ type LoadState =
       rules: ScannedRule[];
       fetchedAt: number;
     }
-  | { status: "error"; parkId: string; message: string };
+  | { status: "error"; parkId: string; reason: "notSaved" | "loadFailed" };
 
 type Highlight = { parkId: string; ruleId: string };
 
 const PARK_ID_RE = /^[1-9][0-9]{0,9}$/;
-
-const NOT_SAVED_MESSAGE =
-  "この公園の情報が端末にありません。\n外出中に公園の近くに行くと、自動で取得されます。";
 
 const INITIAL_WATCH: ParkTracker.RuleWatchStatus = {
   running: false,
@@ -56,16 +54,20 @@ function firstParam(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-function describeError(e: unknown, permissionMessage: string): string {
+function describeError(
+  t: Messages,
+  e: unknown,
+  permissionMessage: string,
+): string {
   const code = (e as { code?: unknown } | null)?.code;
   switch (code) {
     case "E_PERMISSION":
       return permissionMessage;
     case "E_NOT_TRACKING":
-      return "外出中ではありません。";
+      return t.rulesTab.errorNotTracking;
     case "E_START":
     case "E_NOT_STARTED":
-      return "起動できませんでした。権限の設定と、他のアプリがカメラを使っていないかを確認してください。";
+      return t.rulesTab.errorNotStarted;
     default:
       return e instanceof Error ? e.message : String(e);
   }
@@ -105,6 +107,7 @@ export default function RuleTab() {
   const [busy, setBusy] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const cameraWatchEnabled = useCameraWatchEnabled();
+  const t = useT();
   const refreshSeq = useRef(0);
   const mounted = useRef(true);
 
@@ -223,7 +226,7 @@ export default function RuleTab() {
           setLoad({
             status: "error",
             parkId: targetParkId,
-            message: NOT_SAVED_MESSAGE,
+            reason: "notSaved",
           });
           return;
         }
@@ -247,7 +250,7 @@ export default function RuleTab() {
         setLoad({
           status: "error",
           parkId: targetParkId,
-          message: "公園の情報を読み込めませんでした。",
+          reason: "loadFailed",
         });
       }
     })();
@@ -285,8 +288,8 @@ export default function RuleTab() {
         await startOuting();
       } catch (e) {
         Alert.alert(
-          "外出を始められませんでした",
-          describeError(e, "位置情報の使用が許可されていません。"),
+          t.rulesTab.startOutingFailed,
+          describeError(t, e, t.rulesTab.locationNotAllowed),
         );
       }
     });
@@ -296,7 +299,7 @@ export default function RuleTab() {
       try {
         await endOuting();
       } catch (e) {
-        Alert.alert("外出を終えられませんでした", describeError(e, ""));
+        Alert.alert(t.rulesTab.endOutingFailed, describeError(t, e, ""));
       }
     });
 
@@ -305,12 +308,12 @@ export default function RuleTab() {
       try {
         if (!(await ParkTracker.requestCameraPermission())) {
           Alert.alert(
-            "カメラの許可が必要です",
-            "カメラに映ったものを端末内で調べるために使います。画像は保存も送信もしません。",
+            t.rulesTab.cameraPermissionTitle,
+            t.rulesTab.cameraPermissionMessage,
             [
-              { text: "キャンセル", style: "cancel" },
+              { text: t.common.cancel, style: "cancel" },
               {
-                text: "設定を開く",
+                text: t.common.openSettings,
                 onPress: () => {
                   ParkTracker.openAppSettings().catch(() => {});
                 },
@@ -322,8 +325,8 @@ export default function RuleTab() {
         await ParkTracker.startRuleWatch();
       } catch (e) {
         Alert.alert(
-          "カメラでの見守りを始められませんでした",
-          describeError(e, "カメラの使用が許可されていません。"),
+          t.rulesTab.startWatchFailed,
+          describeError(t, e, t.rulesTab.cameraNotAllowed),
         );
       }
     });
@@ -331,9 +334,7 @@ export default function RuleTab() {
   if (Platform.OS !== "android") {
     return (
       <View style={styles.center}>
-        <Text style={styles.text}>
-          外出と公園のルールの表示は、現在 Android のみ対応しています。
-        </Text>
+        <Text style={styles.text}>{t.rulesTab.androidOnly}</Text>
       </View>
     );
   }
@@ -350,29 +351,30 @@ export default function RuleTab() {
     return (
       <View style={styles.center}>
         <Text style={styles.title}>
-          {tracking ? "外出中" : "おでかけの準備"}
+          {tracking ? t.rulesTab.outingTitle : t.rulesTab.readyTitle}
         </Text>
         <Text style={styles.text}>
-          {tracking
-            ? "ルールが登録された公園に入ると、ここにその公園のルールが表示され、カメラでの見守りが始まります。\n出発した場所の近くに戻ると、自動で外出を終えます。"
-            : "「外出する」を押すと、公園に入ったときにその公園のルールをお知らせします。\nルールが登録された公園では、カメラに映ったものを端末内で調べ、ルールに関係するものが映ると通知します。"}
+          {tracking ? t.rulesTab.outingDescription : t.rulesTab.readyDescription}
         </Text>
         <View style={styles.centerButton}>
           {tracking ? (
             <ActionButton
-              label="外出を終える"
+              label={t.rulesTab.endOuting}
               kind="danger"
               busy={busy}
               onPress={onEndOuting}
             />
           ) : (
             <ActionButton
-              label="外出する"
+              label={t.rulesTab.startOuting}
               busy={busy}
               onPress={onStartOuting}
             />
           )}
-          <SearchLink onPress={() => setSearchOpen(true)} />
+          <SearchLink
+            label={t.rulesTab.searchNearby}
+            onPress={() => setSearchOpen(true)}
+          />
         </View>
         <RuleSearchModal
           visible={searchOpen}
@@ -406,7 +408,7 @@ export default function RuleTab() {
         style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
       >
         <Text style={styles.linkText}>
-          今いる公園（{latestCurrent.name || "公園"}）のルールを表示
+          {t.rulesTab.showCurrentPark(latestCurrent.name || t.common.park)}
         </Text>
       </Pressable>,
     );
@@ -416,7 +418,7 @@ export default function RuleTab() {
     footerParts.push(
       <ActionButton
         key="reload"
-        label="再読み込み"
+        label={t.common.reload}
         onPress={() => setReloadKey((k) => k + 1)}
       />,
     );
@@ -426,7 +428,7 @@ export default function RuleTab() {
     footerParts.push(
       <SearchLink
         key="search"
-        label="このルールで近くの公園を探す"
+        label={t.rulesTab.searchWithTheseRules}
         onPress={() => setSearchOpen(true)}
       />,
     );
@@ -437,24 +439,23 @@ export default function RuleTab() {
       if (!cameraWatchEnabled && !watch.running) {
         footerParts.push(
           <Text key="watch" style={styles.watchText}>
-            カメラでの見守りはオフになっています（You
-            タブの設定で変えられます）。
+            {t.rulesTab.watchOff}
           </Text>,
         );
       } else if (watch.running) {
         footerParts.push(
           <Text key="watch" style={styles.watchText}>
-            カメラでルールを見守っています。ルールに関係するものが映ると、そのルールが赤く表示され通知が届きます。画像は保存も送信もしません。
+            {t.rulesTab.watching}
           </Text>,
         );
       } else {
         footerParts.push(
           <Text key="watch" style={styles.watchText}>
-            カメラでの見守りが止まっています。
+            {t.rulesTab.watchStopped}
           </Text>,
           <ActionButton
             key="resume"
-            label="カメラでの見守りを再開"
+            label={t.rulesTab.resumeWatch}
             busy={busy}
             onPress={onResumeCamera}
           />,
@@ -464,7 +465,7 @@ export default function RuleTab() {
     footerParts.push(
       <ActionButton
         key="end"
-        label="外出を終える"
+        label={t.rulesTab.endOuting}
         kind="danger"
         busy={busy}
         onPress={onEndOuting}
@@ -474,7 +475,7 @@ export default function RuleTab() {
     footerParts.push(
       <ActionButton
         key="start"
-        label="外出する"
+        label={t.rulesTab.startOuting}
         busy={busy}
         onPress={onStartOuting}
       />,
@@ -486,11 +487,13 @@ export default function RuleTab() {
       <ParkRules
         park={park}
         rules={displayRules}
-        loadingText="ルールを読み込んでいます…"
+        loadingText={t.rulesTab.loadingRules}
         emptyText={
           view?.status === "error"
-            ? view.message
-            : "この公園にはまだルールが登録されていません"
+            ? view.reason === "notSaved"
+              ? t.rulesTab.parkNotSaved
+              : t.rulesTab.parkLoadFailed
+            : t.rulesTab.noRules
         }
         highlightRuleId={highlightRuleId}
         footer={<View style={styles.footer}>{footerParts}</View>}
@@ -522,10 +525,10 @@ export default function RuleTab() {
 
 function SearchLink({
   onPress,
-  label = "近くの公園をルールで探す",
+  label,
 }: {
   onPress: () => void;
-  label?: string;
+  label: string;
 }) {
   return (
     <Pressable
@@ -549,6 +552,7 @@ function ActionButton({
   kind?: "primary" | "danger";
   busy?: boolean;
 }) {
+  const t = useT();
   return (
     <Pressable
       style={({ pressed }) => [
@@ -562,7 +566,7 @@ function ActionButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: busy, busy }}
     >
-      <Text style={styles.buttonText}>{busy ? "処理中…" : label}</Text>
+      <Text style={styles.buttonText}>{busy ? t.common.processing : label}</Text>
     </Pressable>
   );
 }

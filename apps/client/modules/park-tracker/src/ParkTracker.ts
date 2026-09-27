@@ -19,6 +19,7 @@ import type {
   ParkPolygon,
 } from "./ParkTracker.types";
 import Native from "./ParkTrackerModule";
+import { getT } from "@/lib/i18n";
 
 type NativeModuleType = NonNullable<typeof Native>;
 
@@ -26,8 +27,8 @@ function native(): NativeModuleType {
   if (!Native) {
     throw new Error(
       Platform.OS === "android"
-        ? "ParkTracker ネイティブモジュールが見つかりません。Expo Go ではなく開発ビルド（npx expo run:android）で起動してください。"
-        : "ParkTracker は Android 専用です。",
+        ? getT().tracker.nativeMissing
+        : getT().tracker.androidOnly,
     );
   }
   return Native;
@@ -100,12 +101,13 @@ export async function requestPermissions(
   if (!background) {
     background = await PermissionsAndroid.check(P.ACCESS_BACKGROUND_LOCATION);
     if (!background && options.background !== false) {
+      const t = getT();
       await new Promise<void>((resolve) =>
         Alert.alert(
-          "位置情報を「常に許可」にしてください",
-          "アプリを閉じていても、近くの公園に入ったことをお知らせするために使います。" +
-            (api >= 30 ? "次の画面で「常に許可」を選んでください。" : ""),
-          [{ text: "OK", onPress: () => resolve() }],
+          t.tracker.backgroundTitle,
+          t.tracker.backgroundMessage +
+            (api >= 30 ? t.tracker.backgroundMessageNextScreen : ""),
+          [{ text: t.common.ok, onPress: () => resolve() }],
           { cancelable: false },
         ),
       );
@@ -144,10 +146,7 @@ export async function start(options: TrackerOptions): Promise<void> {
     if (await m.isRunning()) return;
     await sleep(100);
   }
-  throw codedError(
-    "E_NOT_STARTED",
-    "位置情報サービスが起動しませんでした。権限の設定を確認してください。",
-  );
+  throw codedError("E_NOT_STARTED", getT().tracker.trackerNotStarted);
 }
 
 export function stop(): Promise<void> {
@@ -313,7 +312,7 @@ export function resetEnterNotifications(): Promise<number> {
   const n = native();
   if (typeof n.resetEnterNotifications !== "function") {
     return Promise.reject(
-      new Error("このビルドは入園通知のリセットに対応していません"),
+      new Error(getT().tracker.resetUnsupported),
     );
   }
   return n.resetEnterNotifications();
@@ -373,10 +372,7 @@ export async function startRuleWatch(
     if (s.running && s.debug === (debug !== undefined)) return;
     await sleep(100);
   }
-  throw codedError(
-    "E_NOT_STARTED",
-    "カメラでの見守りが起動しませんでした。カメラの権限と、他のアプリがカメラを使っていないかを確認してください。",
-  );
+  throw codedError("E_NOT_STARTED", getT().tracker.watchNotStarted);
 }
 
 export function stopRuleWatch(): Promise<void> {

@@ -2,6 +2,7 @@ import { Alert } from "react-native";
 import * as ParkTracker from "@/modules/park-tracker";
 import Debug from "@/constants/Debug";
 import { api, getToken, onTokenChange } from "@/lib/client";
+import { getT } from "@/lib/i18n";
 import { getLanguage, onLanguageChange } from "@/lib/language";
 import { getCameraWatchEnabled } from "@/lib/settings";
 
@@ -18,12 +19,13 @@ export async function trackerOptions(
     apiUrl: nearbyUrl(),
     headers: { Authorization: `Bearer ${await getToken()}` },
     outing,
+    texts: { ...getT().native },
   };
 }
 
 function alertAsync(title: string, message: string): Promise<void> {
   return new Promise((resolve) =>
-    Alert.alert(title, message, [{ text: "OK", onPress: () => resolve() }], {
+    Alert.alert(title, message, [{ text: getT().common.ok, onPress: () => resolve() }], {
       cancelable: false,
     }),
   );
@@ -31,14 +33,15 @@ function alertAsync(title: string, message: string): Promise<void> {
 
 export async function startOuting(): Promise<boolean> {
   const p = await ParkTracker.requestPermissions();
+  const t = getT();
   if (p.location !== "precise") {
     Alert.alert(
-      "正確な位置情報が必要です",
-      "公園に入ったことを判定するために使います。設定画面で位置情報を「正確な位置」にしてください。",
+      t.outing.preciseLocationTitle,
+      t.outing.preciseLocationMessage,
       [
-        { text: "キャンセル", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         {
-          text: "設定を開く",
+          text: t.common.openSettings,
           onPress: () => {
             ParkTracker.openAppSettings().catch(() => {});
           },
@@ -67,23 +70,17 @@ export async function startOuting(): Promise<boolean> {
   const notes: string[] = [];
   if (wantCamera && !cameraStarted) {
     notes.push(
-      camera
-        ? "カメラを起動できなかったため、カメラでの見守りなしで外出します。アプリを開き直すと再試行します。"
-        : "カメラが許可されていないため、カメラでの見守りなしで外出します。",
+      camera ? t.outing.cameraStartFailed : t.outing.cameraNotAllowed,
     );
   }
   if (!p.notifications) {
-    notes.push(
-      "通知が許可されていないため、公園やルールのお知らせは表示されません。",
-    );
+    notes.push(t.outing.notificationsNotAllowed);
   }
   if (!p.background) {
-    notes.push(
-      "位置情報が「常に許可」ではないため、スマホが記録を止めた後は、アプリを開くまで再開しません。",
-    );
+    notes.push(t.outing.backgroundNotAllowed);
   }
   if (notes.length > 0)
-    await alertAsync("外出を始めました", notes.join("\n\n"));
+    await alertAsync(t.outing.startedTitle, notes.join("\n\n"));
   return true;
 }
 

@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 
 import Colors from "@/constants/Colors";
+import { useT } from "@/lib/i18n";
 import {
   addMonths,
   dayKey,
@@ -23,8 +24,6 @@ import {
   type DiaryPage,
   type YearMonth,
 } from "@/lib/diary";
-
-const WEEK_HEADER = ["日", "月", "火", "水", "木", "金", "土"];
 
 type Props = {
   visible: boolean;
@@ -47,6 +46,7 @@ export function CalendarModal({
   onClose,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const today = dayKeyOf(Date.now());
   const todayYm = ymOf(today)!;
 
@@ -102,8 +102,12 @@ export function CalendarModal({
         ]}
       >
         <View style={styles.topBar}>
-          <Text style={styles.topTitle}>公園カレンダー</Text>
-          <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="閉じる">
+          <Text style={styles.topTitle}>{t.calendar.title}</Text>
+          <Pressable
+            onPress={onClose}
+            hitSlop={10}
+            accessibilityLabel={t.common.close}
+          >
             <MaterialDesignIcons name="close" size={26} color={Colors.text} />
           </Pressable>
         </View>
@@ -114,7 +118,7 @@ export function CalendarModal({
               onPress={() => canPrev && setMonth((m) => addMonths(m, -1))}
               disabled={!canPrev}
               hitSlop={10}
-              accessibilityLabel="前の月"
+              accessibilityLabel={t.calendar.previousMonth}
             >
               <MaterialDesignIcons
                 name="chevron-left"
@@ -123,13 +127,13 @@ export function CalendarModal({
               />
             </Pressable>
             <Text style={styles.monthText}>
-              {month.y}年{month.m}月
+              {t.calendar.monthTitle(month.y, month.m)}
             </Text>
             <Pressable
               onPress={() => canNext && setMonth((m) => addMonths(m, 1))}
               disabled={!canNext}
               hitSlop={10}
-              accessibilityLabel="次の月"
+              accessibilityLabel={t.calendar.nextMonth}
             >
               <MaterialDesignIcons
                 name="chevron-right"
@@ -140,9 +144,9 @@ export function CalendarModal({
           </View>
 
           <View style={styles.weekRow}>
-            {WEEK_HEADER.map((w, i) => (
+            {t.calendar.weekdays.map((w, i) => (
               <Text
-                key={w}
+                key={i}
                 style={[
                   styles.weekHeader,
                   i === 0 && { color: Colors.prohibition },
@@ -169,8 +173,8 @@ export function CalendarModal({
                     onPress={() => list && onSelect(list[0])}
                     accessibilityLabel={
                       has
-                        ? `${month.m}月${d}日 ${list!.length}か所の公園`
-                        : `${month.m}月${d}日`
+                        ? t.calendar.dayWithParks(month.m, d, list!.length)
+                        : t.calendar.day(month.m, d)
                     }
                   >
                     <View
@@ -214,8 +218,8 @@ export function CalendarModal({
 
           <Text style={styles.summary}>
             {monthPages.length === 0
-              ? "この月の記録はありません"
-              : `${dayCount}日・${parkCount}か所の公園を訪れました`}
+              ? t.calendar.noRecords
+              : t.calendar.summary(dayCount, parkCount)}
           </Text>
 
           {monthPages.map(({ p, i }) => (
@@ -224,12 +228,14 @@ export function CalendarModal({
               style={({ pressed }) => [styles.item, pressed && styles.pressed]}
               onPress={() => onSelect(i)}
             >
-              <Text style={styles.itemDay}>{formatDayLabel(p.day)}</Text>
+              <Text style={styles.itemDay}>{formatDayLabel(t, p.day)}</Text>
               <View style={styles.itemBody}>
                 <Text style={styles.itemName} numberOfLines={1}>
-                  {p.name || "名前のない公園"}
+                  {p.name || t.common.unnamedPark}
                 </Text>
-                <Text style={styles.itemTime}>{formatTime(p.enteredAt)}〜</Text>
+                <Text style={styles.itemTime}>
+                  {t.calendar.enteredAt(formatTime(p.enteredAt))}
+                </Text>
               </View>
               <MaterialDesignIcons
                 name="chevron-right"

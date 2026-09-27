@@ -10,6 +10,7 @@ import {
 import type { InferResponseType } from "hono/client";
 import Colors from "@/constants/Colors";
 import { api } from "@/lib/client";
+import { useT } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language";
 import { RuleIcon } from "@/components/rules/RuleIcon";
 import { useTranslatedTexts } from "@/components/rules/useTranslatedTexts";
@@ -26,7 +27,8 @@ export default function BonusModal({ bonus, onDone }: Props) {
   const [language] = useLanguage();
   const { textOf } = useTranslatedTexts([bonus.rule], language);
   const [sending, setSending] = useState(false);
-  const parkName = bonus.parkName || "この公園";
+  const t = useT();
+  const parkName = bonus.parkName || null;
 
   const answer = async (exists: boolean) => {
     if (sending) return;
@@ -49,11 +51,11 @@ export default function BonusModal({ bonus, onDone }: Props) {
     <Modal transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.badge}>ボーナス！</Text>
+          <Text style={styles.badge}>{t.bonus.badge}</Text>
           <Text style={styles.message}>
             {bonus.kind === "verify"
-              ? `${parkName}で、ほかの人がこんなルールを見つけています。`
-              : `近くの別の公園で、こんなルールが見つかっています。`}
+              ? t.bonus.verifyMessage(parkName)
+              : t.bonus.suggestMessage}
           </Text>
           <View style={styles.rule}>
             <RuleIcon
@@ -64,7 +66,7 @@ export default function BonusModal({ bonus, onDone }: Props) {
             <Text style={styles.ruleText}>{textOf(bonus.rule)}</Text>
           </View>
           <Text style={styles.question}>
-            {`いまいる${parkName}で、このルールを見かけましたか？`}
+            {t.bonus.question(parkName)}
           </Text>
 
           {sending ? (
@@ -83,7 +85,7 @@ export default function BonusModal({ bonus, onDone }: Props) {
                 onPress={() => answer(true)}
                 accessibilityRole="button"
               >
-                <Text style={styles.buttonText}>受け取る（見かけた）</Text>
+                <Text style={styles.buttonText}>{t.bonus.accept}</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [
@@ -94,7 +96,7 @@ export default function BonusModal({ bonus, onDone }: Props) {
                 onPress={() => answer(false)}
                 accessibilityRole="button"
               >
-                <Text style={styles.rejectText}>見ていない</Text>
+                <Text style={styles.rejectText}>{t.bonus.reject}</Text>
               </Pressable>
             </>
           )}

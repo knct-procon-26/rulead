@@ -1,5 +1,6 @@
 import { Alert } from "react-native";
 import { api } from "./client";
+import { getT } from "./i18n";
 
 export type ReportReason =
   | "rule_not_here"
@@ -34,7 +35,7 @@ function chooseReason(
       title,
       message,
       [
-        { text: "キャンセル", style: "cancel", onPress: () => resolve(null) },
+        { text: getT().common.cancel, style: "cancel", onPress: () => resolve(null) },
         ...choices.map((c) => ({
           text: c.label,
           style: "destructive" as const,
@@ -52,13 +53,14 @@ async function sendAndTell(
   parkId: number,
 ): Promise<void> {
   const ok = await report(reason, ruleId, parkId);
+  const t = getT();
   Alert.alert(
-    ok ? "報告しました" : "報告できませんでした",
+    ok ? t.report.sent : t.report.failed,
     !ok
-      ? "通信できる場所で、もう一度お試しください。"
+      ? t.common.tryAgainOnline
       : ruleId !== undefined
-        ? "ご協力ありがとうございます。同じ報告が複数の人から届くと、この公園ではこのルールが表示されなくなります（反映まで最大1日かかります）。"
-        : "ご協力ありがとうございます。",
+        ? t.report.thanksRule
+        : t.report.thanks,
   );
 }
 
@@ -67,12 +69,13 @@ export async function promptReportRule(
   ruleId: string,
   ruleText: string,
 ): Promise<void> {
+  const t = getT();
   const reason = await chooseReason(
-    "このルールを報告",
-    `「${ruleText}」\n\nどのような問題がありますか？`,
+    t.report.ruleTitle,
+    t.report.ruleMessage(ruleText),
     [
-      { label: "この公園にない", reason: "rule_not_here" },
-      { label: "内容がおかしい", reason: "rule_inappropriate" },
+      { label: t.report.ruleNotHere, reason: "rule_not_here" },
+      { label: t.report.ruleInappropriate, reason: "rule_inappropriate" },
     ],
   );
   if (reason === null) return;
@@ -83,10 +86,11 @@ export async function promptReportPark(
   parkId: number,
   parkName: string,
 ): Promise<void> {
+  const t = getT();
   const reason = await chooseReason(
-    "この公園を報告",
-    `「${parkName || "名前のない公園"}」\n\n公園の名前や場所が違いますか？`,
-    [{ label: "名前・場所が違う", reason: "park_wrong" }],
+    t.report.parkTitle,
+    t.report.parkMessage(parkName || t.common.unnamedPark),
+    [{ label: t.report.parkWrong, reason: "park_wrong" }],
   );
   if (reason === null) return;
   await sendAndTell(reason, undefined, parkId);

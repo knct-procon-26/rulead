@@ -2,10 +2,12 @@ import { SymbolView } from "expo-symbols";
 import { Tabs } from "expo-router";
 
 import Colors from "@/constants/Colors";
+import { useT } from "@/lib/i18n";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   return (
     <Tabs
       screenOptions={{
@@ -22,7 +24,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Rules",
+          title: t.tabs.rules,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -39,7 +41,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="diary"
         options={{
-          title: "Diary",
+          title: t.tabs.diary,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -56,7 +58,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: "Scan",
+          title: t.tabs.scan,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -73,7 +75,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="collection"
         options={{
-          title: "Collection",
+          title: t.tabs.collection,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -90,7 +92,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="you"
         options={{
-          title: "You",
+          title: t.tabs.you,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{

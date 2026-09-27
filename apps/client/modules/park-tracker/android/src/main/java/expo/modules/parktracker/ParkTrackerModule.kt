@@ -19,6 +19,8 @@ class StartOptions : Record {
     @Field var headers: Map<String, String> = emptyMap()
     /** true: 新しい外出を始める（出発地点に戻ったら自動で止まる）。false: 外出の状態はそのまま（再開・トークン更新用） */
     @Field var outing: Boolean = false
+    /** 通知の文言（UiTexts）。空なら前回保存した文言のまま */
+    @Field var texts: Map<String, String> = emptyMap()
 }
 
 /**
@@ -80,6 +82,9 @@ class ParkTrackerModule : Module() {
             if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 throw CodedException("E_PERMISSION", "ACCESS_FINE_LOCATION is not granted", null)
             }
+            // 通知の文言：サービスが通知を作る前に保存しておく（言語の変更で start し直したときも反映する）
+            UiTexts.save(ctx, options.texts)
+            RuleWatchService.onTextsChanged()
             // 新しい外出：サービスが状態を読む前に保存しておく（出発地点は最初の精度のよい位置で決まる）
             if (options.outing) Outing.begin(ctx, System.currentTimeMillis())
             val intent = Intent(ctx, ParkTrackerService::class.java)

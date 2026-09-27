@@ -21,7 +21,12 @@ import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-
 import * as ParkTracker from "@/modules/park-tracker";
 import type { ParkPolygon } from "@/modules/park-tracker";
 import Colors from "@/constants/Colors";
-import { MLKIT_LABELS, type LabelCategory } from "@/constants/MlkitLabels";
+import {
+  MLKIT_LABELS,
+  labelText,
+  type LabelCategory,
+} from "@/constants/MlkitLabels";
+import { getT, useT, useUiLocale } from "@/lib/i18n";
 import { ParkHeader } from "@/components/rules/ParkHeader";
 import { DiaryMap, PARK_STROKE, TRACK_COLOR } from "./DiaryMap";
 import {
@@ -74,7 +79,7 @@ type PageData = {
 
 async function loadPageData(page: Page): Promise<PageData> {
   const range = dayRange(page.day);
-  if (!range) throw new Error("日付が正しくありません");
+  if (!range) throw new Error(getT().diary.invalidDate);
   const [track, sightings, visited, details] = await Promise.all([
     ParkTracker.getTrack(range.start, range.end),
     ParkTracker.getSightings(range.start, range.end),
@@ -173,6 +178,8 @@ export const DiaryPageView = memo(function DiaryPageView({
   onOpenPhoto,
 }: Props) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const t = useT();
+  const locale = useUiLocale();
   const loadedToken = useRef<number | null>(null);
 
   const { key, day, parkId, enteredAt, name } = page;
@@ -246,14 +253,14 @@ export const DiaryPageView = memo(function DiaryPageView({
   if (state.status === "error") {
     return (
       <View style={[styles.center, { width }]}>
-        <Text style={styles.muted}>日記を読み込めませんでした</Text>
+        <Text style={styles.muted}>{t.diary.loadFailed}</Text>
         <Text style={styles.small}>{state.message}</Text>
       </View>
     );
   }
 
   const d = state.data;
-  const title = d.name || "名前のない公園";
+  const title = d.name || t.common.unnamedPark;
 
   return (
     <ScrollView
@@ -272,11 +279,9 @@ export const DiaryPageView = memo(function DiaryPageView({
         <Text style={styles.timeText}>
           {d.period.end !== null && d.period.end > d.period.start
             ? `${formatTime(d.period.start)} – ${formatTime(d.period.end)}`
-            : `${formatTime(d.period.start)} に訪問`}
+            : t.diary.visitedAt(formatTime(d.period.start))}
           {d.period.total > 0
-            ? `（滞在 ${formatDuration(d.period.total)}${
-                d.stays.length > 1 ? `・${d.stays.length}回` : ""
-              }）`
+            ? t.diary.stay(formatDuration(t, d.period.total), d.stays.length)
             : ""}
         </Text>
       </View>
@@ -305,7 +310,7 @@ export const DiaryPageView = memo(function DiaryPageView({
               <Pressable
                 style={styles.expand}
                 hitSlop={8}
-                accessibilityLabel="地図を大きく表示"
+                accessibilityLabel={t.diary.expandMap}
                 onPress={() =>
                   d.region &&
                   onOpenMap({
@@ -331,27 +336,26 @@ export const DiaryPageView = memo(function DiaryPageView({
               size={32}
               color={Colors.mutedText}
             />
-            <Text style={styles.muted}>地図のデータがありません</Text>
+            <Text style={styles.muted}>{t.diary.noMapData}</Text>
           </View>
         )}
       </View>
       <View style={styles.legend}>
         <View style={[styles.legendSwatch, { borderColor: PARK_STROKE }]} />
-        <Text style={styles.legendText}>公園の範囲</Text>
+        <Text style={styles.legendText}>{t.diary.legendPark}</Text>
         <View style={[styles.legendLine, { backgroundColor: TRACK_COLOR }]} />
-        <Text style={styles.legendText}>歩いた道</Text>
+        <Text style={styles.legendText}>{t.diary.legendTrack}</Text>
       </View>
 
       {/* よく見たもの */}
-      <Text style={styles.sectionTitle}>よく見かけたもの</Text>
+      <Text style={styles.sectionTitle}>{t.diary.seenTitle}</Text>
       {d.ranking.length === 0 ? (
-        <Text style={styles.muted}>
-          カメラの見守りで見つかったものはありません
-        </Text>
+        <Text style={styles.muted}>{t.diary.seenNone}</Text>
       ) : (
         d.ranking.map((r, i) => {
           const info =
             r.labelIndex >= 0 ? MLKIT_LABELS[r.labelIndex] : undefined;
+          const primary = info ? labelText(info, locale) : r.label;
           const top = d.ranking[0].count;
           return (
             <View key={r.key} style={styles.rankRow}>
@@ -375,11 +379,11 @@ export const DiaryPageView = memo(function DiaryPageView({
               <View style={styles.rankBody}>
                 <View style={styles.rankLine}>
                   <Text style={styles.rankLabel} numberOfLines={1}>
-                    {info?.ja ?? r.label}
+                    {primary}
                   </Text>
-                  <Text style={styles.rankCount}>{r.count}回</Text>
+                  <Text style={styles.rankCount}>{t.diary.times(r.count)}</Text>
                 </View>
-                {info && info.en !== info.ja ? (
+                {info && info.en !== primary ? (
                   <Text style={styles.small} numberOfLines={1}>
                     {info.en}
                   </Text>
@@ -399,7 +403,7 @@ export const DiaryPageView = memo(function DiaryPageView({
       )}
 
       {/* 写真 */}
-      <Text style={styles.sectionTitle}>ここで撮った写真</Text>
+      <Text style={styles.sectionTitle}>{t.diary.photosTitle}</Text>
       <PhotoSection
         access={photoAccess}
         state={photoState}
@@ -430,12 +434,11 @@ function PhotoSection({
   onReselect: () => void;
   onOpen: (photos: Photo[], index: number) => void;
 }) {
+  const t = useT();
   if (access === null) return <ActivityIndicator color={Colors.tint} />;
   if (access === "unavailable") {
     return (
-      <Text style={styles.muted}>
-        このバージョンのアプリは写真の表示に対応していません
-      </Text>
+      <Text style={styles.muted}>{t.diary.photosUnavailable}</Text>
     );
   }
   if (
@@ -445,9 +448,7 @@ function PhotoSection({
   ) {
     return (
       <View style={styles.permBox}>
-        <Text style={styles.permText}>
-          公園にいた時間に撮った写真を、端末の中だけで探して表示します。写真がアプリの外に送られることはありません。
-        </Text>
+        <Text style={styles.permText}>{t.diary.photosExplain}</Text>
         <Pressable
           style={styles.button}
           onPress={
@@ -458,8 +459,8 @@ function PhotoSection({
         >
           <Text style={styles.buttonText}>
             {access === "blocked"
-              ? "設定で写真へのアクセスを許可"
-              : "写真へのアクセスを許可"}
+              ? t.diary.photosAllowInSettings
+              : t.diary.photosAllow}
           </Text>
         </Pressable>
       </View>
@@ -467,16 +468,14 @@ function PhotoSection({
   }
   if (!hasStay) {
     return (
-      <Text style={styles.muted}>
-        滞在時間の記録が無いため、写真を探せません
-      </Text>
+      <Text style={styles.muted}>{t.diary.photosNoStay}</Text>
     );
   }
   if (state.status === "idle" || state.status === "loading") {
     return <ActivityIndicator color={Colors.tint} />;
   }
   if (state.status === "error") {
-    return <Text style={styles.muted}>写真を読み込めませんでした</Text>;
+    return <Text style={styles.muted}>{t.diary.photosLoadFailed}</Text>;
   }
 
   const photos = state.photos;
@@ -489,15 +488,15 @@ function PhotoSection({
       {access === "limited" ? (
         <View style={styles.limitedRow}>
           <Text style={[styles.small, styles.flex]}>
-            アクセスを許可した写真だけを表示しています
+            {t.diary.photosLimited}
           </Text>
           <Pressable onPress={onReselect} hitSlop={8}>
-            <Text style={styles.link}>写真を選び直す</Text>
+            <Text style={styles.link}>{t.diary.photosReselect}</Text>
           </Pressable>
         </View>
       ) : null}
       {photos.length === 0 ? (
-        <Text style={styles.muted}>この公園で撮った写真はありません</Text>
+        <Text style={styles.muted}>{t.diary.photosNone}</Text>
       ) : (
         <View style={[styles.grid, { gap: GRID_GAP }]}>
           {shown.map((p, i) => {
@@ -507,7 +506,7 @@ function PhotoSection({
                 key={p.id}
                 onPress={() => onOpen(photos, i)}
                 style={{ width: size, height: size }}
-                accessibilityLabel={`${formatTime(p.takenAt)} に撮った写真`}
+                accessibilityLabel={t.diary.photoTakenAt(formatTime(p.takenAt))}
               >
                 <Image
                   source={{ uri: p.uri }}

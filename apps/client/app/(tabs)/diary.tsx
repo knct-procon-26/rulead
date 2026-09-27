@@ -19,6 +19,7 @@ import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-
 import * as ParkTracker from "@/modules/park-tracker";
 import Colors from "@/constants/Colors";
 import { buildPages, formatDayLabel, type DiaryPage } from "@/lib/diary";
+import { useT } from "@/lib/i18n";
 import {
   getPhotoAccess,
   requestPhotoAccess,
@@ -39,10 +40,11 @@ const clamp = (n: number, min: number, max: number) =>
   Math.min(Math.max(n, min), max);
 
 export default function DiaryTab() {
+  const t = useT();
   if (Platform.OS !== "android") {
     return (
       <View style={styles.center}>
-        <Text style={styles.muted}>公園日記は Android 版でのみ使えます</Text>
+        <Text style={styles.muted}>{t.diary.androidOnly}</Text>
       </View>
     );
   }
@@ -50,6 +52,7 @@ export default function DiaryTab() {
 }
 
 function Diary() {
+  const t = useT();
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [index, setIndex] = useState(0);
   const [width, setWidth] = useState(0);
@@ -220,10 +223,10 @@ function Diary() {
   if (list.status === "error") {
     return (
       <View style={styles.center}>
-        <Text style={styles.muted}>日記を読み込めませんでした</Text>
+        <Text style={styles.muted}>{t.diary.loadFailed}</Text>
         <Text style={styles.small}>{list.message}</Text>
         <Pressable style={styles.retry} onPress={reloadAll}>
-          <Text style={styles.retryText}>再読み込み</Text>
+          <Text style={styles.retryText}>{t.common.reload}</Text>
         </Pressable>
       </View>
     );
@@ -236,11 +239,8 @@ function Diary() {
           size={48}
           color={Colors.mutedText}
         />
-        <Text style={styles.emptyTitle}>まだ日記がありません</Text>
-        <Text style={styles.emptyText}>
-          Rules
-          タブの「外出する」をオンにして公園を訪れると、歩いた道やカメラに映ったものがここに記録されます。
-        </Text>
+        <Text style={styles.emptyTitle}>{t.diary.emptyTitle}</Text>
+        <Text style={styles.emptyText}>{t.diary.emptyText}</Text>
       </View>
     );
   }
@@ -258,7 +258,7 @@ function Diary() {
           onPress={() => goTo(i - 1, true)}
           disabled={i === 0}
           hitSlop={10}
-          accessibilityLabel="前の日記"
+          accessibilityLabel={t.diary.previous}
         >
           <MaterialDesignIcons
             name="chevron-left"
@@ -269,7 +269,7 @@ function Diary() {
         <Pressable
           style={styles.headerCenter}
           onPress={() => setCalendarOpen(true)}
-          accessibilityLabel="カレンダーを開く"
+          accessibilityLabel={t.diary.openCalendar}
         >
           <View style={styles.dateRow}>
             <MaterialDesignIcons
@@ -277,19 +277,19 @@ function Diary() {
               size={20}
               color={Colors.tint}
             />
-            <Text style={styles.dateText}>{formatDayLabel(current.day)}</Text>
+            <Text style={styles.dateText}>{formatDayLabel(t, current.day)}</Text>
           </View>
           <Text style={styles.subText}>
             {sameDay.length > 1
-              ? `この日の公園 ${posInDay + 1} / ${sameDay.length}`
-              : `${i + 1} / ${all.length} 件目の記録`}
+              ? t.diary.parkOfDay(posInDay + 1, sameDay.length)
+              : t.diary.recordOf(i + 1, all.length)}
           </Text>
         </Pressable>
         <Pressable
           onPress={() => goTo(i + 1, true)}
           disabled={i === all.length - 1}
           hitSlop={10}
-          accessibilityLabel="次の日記"
+          accessibilityLabel={t.diary.next}
         >
           <MaterialDesignIcons
             name="chevron-right"

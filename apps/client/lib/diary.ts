@@ -5,6 +5,7 @@ import type {
   TrackPoint,
   Visit,
 } from "@/modules/park-tracker";
+import type { Messages } from "@/lib/i18n";
 
 export type DiaryPage = {
   key: string;
@@ -51,13 +52,11 @@ export function dayRange(day: string): { start: number; end: number } | null {
   };
 }
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
-
-export function formatDayLabel(day: string): string {
+export function formatDayLabel(t: Messages, day: string): string {
   const p = parseDay(day);
   if (!p) return day;
-  const w = WEEKDAYS[new Date(p.y, p.m - 1, p.d).getDay()];
-  return `${p.y}/${p.m}/${p.d}（${w}）`;
+  const weekday = new Date(p.y, p.m - 1, p.d).getDay();
+  return t.diary.dayLabel(p.y, p.m, p.d, weekday);
 }
 
 export function formatTime(time: number): string {
@@ -65,13 +64,12 @@ export function formatTime(time: number): string {
   return `${d.getHours()}:${pad2(d.getMinutes())}`;
 }
 
-export function formatDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < MINUTE) return "1分未満";
+export function formatDuration(t: Messages, ms: number): string {
+  if (!Number.isFinite(ms) || ms < MINUTE) return t.diary.durationUnderMinute;
   const total = Math.round(ms / MINUTE);
   const h = Math.floor(total / 60);
   const m = total % 60;
-  if (h === 0) return `${m}分`;
-  return m === 0 ? `${h}時間` : `${h}時間${m}分`;
+  return t.diary.duration(h, m);
 }
 
 export function buildPages(visits: Visit[]): DiaryPage[] {

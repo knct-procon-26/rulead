@@ -42,8 +42,6 @@ data class WatchConfig(
     val parkName: String,
     val rules: List<WatchRule>,
 ) {
-    val displayName: String get() = parkName.ifEmpty { "公園" }
-
     fun toJson(): String = JSONObject().apply {
         put("parkId", parkId)
         put("parkName", parkName)
