@@ -4,7 +4,7 @@ import Debug from "@/constants/Debug";
 import { ApplyGlobalResponse, hc } from "hono/client";
 
 const TOKEN_KEY = "device_token";
-const endpoint = Debug.apiBaseUrl ?? "http://localhost:3000";
+const endpoint = Debug.apiBaseUrl ?? "https://rulead.prolab.club";
 // TODO: ここにAPIのエンドポイントを設定する
 
 const authApi = hc<AppType>(endpoint);

@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "club.prolab.rulead"
+      "package": "club.prolab.rulead",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
