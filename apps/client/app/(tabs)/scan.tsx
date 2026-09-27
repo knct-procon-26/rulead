@@ -73,6 +73,7 @@ export default function ScanTab() {
       const res = await api.api.rules.$post({
         json: {
           park: {
+            id: area.parkId,
             name: area.name,
             address: area.address,
             geometry: area.geometry.map((point) => ({
