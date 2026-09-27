@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, AppState, Button, FlatList, Text, View } from "react-native";
-import * as ParkTracker from "../modules/park-tracker"; // ← 置いた場所に合わせる
+import * as ParkTracker from "../modules/park-tracker";
 import Debug from "@/constants/Debug";
 import { api, getToken } from "@/lib/client";
-const API_URL = `${Debug.apiBaseUrl}/api/parks/nearby`; // ← 自分のサーバーに変える
+const API_URL = `${Debug.apiBaseUrl}/api/parks/nearby`;
 const trackerOptions = async (): Promise<ParkTracker.TrackerOptions> => ({
   apiUrl: API_URL,
   headers: { Authorization: `Bearer ${await getToken()}` },
@@ -18,9 +18,7 @@ export default function ExampleScreen() {
       [`${new Date().toLocaleTimeString()} ${s}`, ...l].slice(0, 100),
     );
 
-  // 保存済みのデータを読み直す（アプリが閉じている間に入った公園もここで拾える）
   const reload = useCallback(async () => {
-    // 端末の再起動などで止まっていたら再開する（ユーザーが停止していなければ）
     try {
       if (await ParkTracker.ensureRunning(await trackerOptions()))
         add("記録を再開しました");
@@ -54,6 +52,14 @@ export default function ExampleScreen() {
       ),
       ParkTracker.addListener("ParkTrackerError", (e) =>
         add(`エラー ${e.message}`),
+      ),
+      ParkTracker.addListener("RuleWatchAlert", (e) =>
+        add(
+          `ルール検出 ${e.label}（${Math.round(e.confidence * 100)}%）→ ${e.ruleText}`,
+        ),
+      ),
+      ParkTracker.addListener("RuleWatchStopped", (e) =>
+        add(`カメラの見守りを停止（${e.reason}）`),
       ),
     ];
     return () => {
@@ -102,6 +108,27 @@ export default function ExampleScreen() {
     Alert.alert("今日の公園内の記録", `${points.length} 件`);
   };
 
+  const onShowSightings = async () => {
+    try {
+      const from = ParkTracker.startOfDay();
+      const [sightings, alerts] = await Promise.all([
+        ParkTracker.getSightings(from),
+        ParkTracker.getRuleAlerts(from),
+      ]);
+      const lines = sightings
+        .slice()
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20)
+        .map((s) => `${s.label} ×${s.count}（${s.parkName || s.parkId}）`);
+      Alert.alert(
+        "今日カメラで見たもの",
+        `${sightings.length} 種類・ルールの通知 ${alerts.length} 件\n\n${lines.join("\n") || "まだありません"}`,
+      );
+    } catch (e: any) {
+      Alert.alert("読み込めませんでした", `${e?.message ?? e}`);
+    }
+  };
+
   return (
     <View style={{ flex: 1, padding: 16, gap: 8 }}>
       <Text>状態: {running ? "記録中" : "停止中"}</Text>
@@ -110,6 +137,7 @@ export default function ExampleScreen() {
         onPress={running ? onStop : onStart}
       />
       <Button title="今日の位置記録の件数" onPress={onShowTrack} />
+      <Button title="今日カメラで見たもの" onPress={onShowSightings} />
       <Button
         title="電池の最適化設定を開く"
         onPress={() => ParkTracker.openBatterySettings()}

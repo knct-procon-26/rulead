@@ -1,25 +1,100 @@
 export type TrackerOptions = {
-  /** 例: https://api.example.com/parks/nearby （?lat=..&lng=.. が付いて GET される） */
   apiUrl: string;
-  /** 例: { Authorization: 'Bearer xxx' }。値は文字列のみ */
+
   headers?: Record<string, string>;
+
+  outing?: boolean;
 };
 
-/** 公園の中にいる間に記録した位置（生の位置。丸めていない。精度50m以内のものだけ） */
+export type OutingStatus = {
+  active: boolean;
+  startedAt: number | null;
+
+  homeSet: boolean;
+
+  leftHome: boolean;
+};
+
 export type TrackPoint = {
-  time: number; // UNIX ミリ秒
+  time: number;
   lat: number;
   lng: number;
-  accuracy: number; // メートル
-  parkIds: string[]; // そのとき中にいた公園（普通は1つ）
+  accuracy: number;
+  parkIds: string[];
 };
 
-/** その日に初めて入った公園（1公園1日1件） */
 export type Visit = {
   parkId: string;
   name: string;
-  day: string; // 'YYYY-MM-DD'（端末のタイムゾーン）
-  enteredAt: number; // UNIX ミリ秒
+  day: string;
+  enteredAt: number;
+};
+
+export type CurrentPark = {
+  parkId: string;
+  name: string;
+  enteredAt: number;
+};
+
+export type ParkRule = {
+  id: string;
+  text: string;
+  iconId: number;
+  iconName: string;
+  iconType: "prohibition" | "caution" | "information";
+
+  keywords: { id: number; label: string; index: number }[];
+};
+
+export type ParkDetails = {
+  parkId: string;
+  name: string;
+  address: string;
+  rules: ParkRule[];
+  fetchedAt: number;
+};
+
+export type WatchKeyword = { index: number; label: string };
+
+export type WatchRule = { id: string; text: string; keywords: WatchKeyword[] };
+
+export type RuleWatchDebugPark = {
+  parkId: string;
+  parkName: string;
+  rules: WatchRule[];
+};
+
+export type RuleWatchStatus = {
+  running: boolean;
+
+  cameraActive: boolean;
+  parkId: string | null;
+  parkName: string | null;
+
+  debug: boolean;
+};
+
+export type Sighting = {
+  parkId: string;
+  parkName: string;
+  day: string;
+  labelIndex: number;
+  label: string;
+  count: number;
+  firstSeen: number;
+  lastSeen: number;
+  maxConfidence: number;
+};
+
+export type RuleAlert = {
+  parkId: string;
+  parkName: string;
+  ruleId: string;
+  ruleText: string;
+  labelIndex: number;
+  label: string;
+  confidence: number;
+  time: number;
 };
 
 export type LocationEvent = {
@@ -28,28 +103,50 @@ export type LocationEvent = {
   accuracy: number;
   time: number;
   insideParkIds: string[];
-  /** 次の取得までの間隔（ミリ秒） */
+
   intervalMs: number;
 };
 
-/** firstToday: その日初めて入った（＝通知を出した）なら true */
-export type EnterEvent = { parkId: string; name: string; time: number; firstToday: boolean };
+export type EnterEvent = {
+  parkId: string;
+  name: string;
+  time: number;
+  firstToday: boolean;
+};
 export type ExitEvent = { parkId: string; time: number };
 export type ErrorEvent = { message: string };
 
-/** ネイティブから届くイベント（名前 → リスナーの型） */
+export type RuleWatchLabelsEvent = {
+  parkId: string;
+  time: number;
+  labels: { index: number; label: string; confidence: number }[];
+};
+export type RuleWatchAlertEvent = RuleAlert;
+export type RuleWatchStopReason =
+  | "user"
+  | "tracker_stopped"
+  | "timeout"
+  | "error"
+  | "stopped";
+export type RuleWatchStoppedEvent = { reason: RuleWatchStopReason };
+
+export type OutingEndedEvent = { reason: "returned"; time: number };
+
 export type ParkTrackerEvents = {
   ParkTrackerLocation: (e: LocationEvent) => void;
   ParkTrackerEnter: (e: EnterEvent) => void;
   ParkTrackerExit: (e: ExitEvent) => void;
   ParkTrackerError: (e: ErrorEvent) => void;
+  ParkTrackerOutingEnded: (e: OutingEndedEvent) => void;
+  RuleWatchLabels: (e: RuleWatchLabelsEvent) => void;
+  RuleWatchAlert: (e: RuleWatchAlertEvent) => void;
+  RuleWatchStopped: (e: RuleWatchStoppedEvent) => void;
 };
 
 export type PermissionStatus = {
-  /** precise: 正確な位置を許可 / approximate: おおよその位置のみ（公園の判定には使えない） */
-  location: 'precise' | 'approximate' | 'denied' | 'blocked';
-  /** 位置情報の「常に許可」。なくても動くが、OS に止められた後の自動再開ができない */
+  location: "precise" | "approximate" | "denied" | "blocked";
+
   background: boolean;
-  /** 通知。なくても記録は動くが、入園の通知が出ない */
+
   notifications: boolean;
 };

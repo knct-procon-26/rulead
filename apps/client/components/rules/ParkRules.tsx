@@ -20,6 +20,7 @@ type Props = {
   loadingText?: string;
   emptyText?: string;
   footer?: ReactNode;
+  highlightRuleId?: string;
 };
 
 export function ParkRules({
@@ -28,6 +29,7 @@ export function ParkRules({
   loadingText = "読み込み中…",
   emptyText = "ルールがありません",
   footer,
+  highlightRuleId,
 }: Props) {
   const [language, setLanguage] = useLanguage();
   const { textOf, status } = useTranslatedTexts(rules ?? [], language);
@@ -74,6 +76,9 @@ export function ParkRules({
                   ? `Keyword: ${rule.keywords.join(", ")}`
                   : undefined
               }
+              highlighted={
+                highlightRuleId !== undefined && rule.id === highlightRuleId
+              }
             />
           ))}
         </ScrollView>
@@ -117,10 +122,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
+    paddingHorizontal: 20,
   },
   placeholderText: {
     fontSize: 15,
     color: Colors.subText,
+    textAlign: "center",
   },
   footer: {
     paddingHorizontal: 20,

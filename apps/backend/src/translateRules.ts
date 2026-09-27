@@ -1,11 +1,9 @@
-import img2rules from "./lib/img2rules";
 import { Hono } from "hono";
 import z from "zod";
-import { HTTPException } from "hono/http-exception";
 import { zValidator } from "./lib/validator";
 import { db } from "./db/client";
 import { ruleTranslations } from "./db/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { googleTranslate } from "./lib/translation";
 const app = new Hono();
 const extractRulesSchema = z.object({
@@ -29,18 +27,21 @@ const translateRule = app.post(
     const uniqueRules = [...new Map(data.rules.map((r) => [r.id, r])).values()];
     const ruleIds = uniqueRules.map((i) => i.id);
 
-    const cached = await db
-      .select({
-        ruleId: ruleTranslations.ruleId,
-        text: ruleTranslations.text,
-      })
-      .from(ruleTranslations)
-      .where(
-        and(
-          inArray(ruleTranslations.ruleId, ruleIds),
-          eq(ruleTranslations.languageCode, data.to),
-        ),
-      );
+    const cached =
+      ruleIds.length === 0
+        ? []
+        : await db
+            .select({
+              ruleId: ruleTranslations.ruleId,
+              text: ruleTranslations.text,
+            })
+            .from(ruleTranslations)
+            .where(
+              and(
+                inArray(ruleTranslations.ruleId, ruleIds),
+                eq(ruleTranslations.languageCode, data.to),
+              ),
+            );
 
     for (const row of cached) results[row.ruleId] = row.text;
 
@@ -58,19 +59,17 @@ const translateRule = app.post(
         languageCode: data.to,
         text: translated[i],
       }));
+      for (const row of rows) results[row.ruleId] = row.text;
 
+      const sorted = [...rows].sort((a, b) =>
+        a.ruleId < b.ruleId ? -1 : a.ruleId > b.ruleId ? 1 : 0,
+      );
       await db
         .insert(ruleTranslations)
-        .values(rows)
-        .onConflictDoUpdate({
+        .values(sorted)
+        .onConflictDoNothing({
           target: [ruleTranslations.ruleId, ruleTranslations.languageCode],
-          set: {
-            text: sql`excluded.text`,
-            updatedAt: sql`now()`,
-          },
         });
-
-      for (const row of rows) results[row.ruleId] = row.text;
     }
 
     return c.json(
