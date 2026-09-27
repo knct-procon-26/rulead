@@ -1,63 +1,74 @@
-import { Button, StyleSheet } from "react-native";
-
-import EditScreenInfo from "@/components/EditScreenInfo";
-import { Text, View } from "@/components/Themed";
-import {
-  CameraCapturedPicture,
-  CameraView,
-  useCameraPermissions,
-} from "expo-camera";
-import { useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { CameraCapturedPicture } from "expo-camera";
+import { useRef, useState } from "react";
 import Camera from "@/components/scan/camera";
 import Map, { Area } from "@/components/scan/map";
 import { api } from "@/lib/client";
+import { viewError } from "@/lib/utility";
 import Confirm from "@/components/scan/confirm";
 import { useRouter } from "expo-router";
+import Colors from "@/constants/Colors";
+import type { ScannedRule } from "@/components/rules/types";
 
 type ScanState = "camera" | "map" | "confirm";
-type Rule = {
-  id: string;
-  text: string;
-};
 
 export default function ScanTab() {
   const [scanState, setScanState] = useState<ScanState>("camera");
-  const [photo, setPhoto] = useState<CameraCapturedPicture | null>(null);
-  const [rules, setRules] = useState<Rule[]>([]);
+  const [rules, setRules] = useState<ScannedRule[] | null>(null);
   const [area, setArea] = useState<Area | null>(null);
   const router = useRouter();
+  const scanIdRef = useRef(0);
+  const submittingRef = useRef(false);
+
+  const reset = () => {
+    scanIdRef.current++;
+    setRules(null);
+    setArea(null);
+    setScanState("camera");
+  };
+
+  const end = async (message?: string) => {
+    if (message) await viewError(message);
+    reset();
+  };
 
   const onPictureTaken = (photo: CameraCapturedPicture) => {
-    setPhoto(photo);
-    if (photo.base64 === undefined) return;
+    const base64Image = photo.base64;
+    if (base64Image === undefined) return;
+    setRules(null);
     setScanState("map");
+    const scanId = ++scanIdRef.current;
     (async () => {
-      // const res = await api.api.scan.$post({
-      //   json: { base64Image: photo.base64 ?? "" },
-      // });
-      const res = await api.api.scan.$post({
-        json: { base64Image: photo.base64 ?? "" },
-      });
-      console.log(res);
-      const data = await res.json();
-      if (data?.success === true) {
-        setRules(data.rules);
-      } else {
-        console.log("?");
+      try {
+        const res = await api.api.scan.$post({
+          json: { base64Image },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (scanId !== scanIdRef.current) return;
+          setRules(data.rules);
+        } else {
+          const err = await res.json();
+          if (scanId !== scanIdRef.current) return;
+          await end(err.error);
+        }
+      } catch (error) {
+        if (scanId !== scanIdRef.current) return;
+        await end("Failed to connect with API.");
       }
     })();
   };
 
   const onLocationDecided = (area: Area) => {
     setArea(area);
-    console.log(area);
     setScanState("confirm");
   };
 
   const onConfirm = async () => {
-    console.log(area);
-    if (!area) return;
-    (async () => {
+    if (!area || !rules || rules.length === 0 || submittingRef.current) return;
+    submittingRef.current = true;
+    try {
       const res = await api.api.rules.$post({
         json: {
           park: {
@@ -68,29 +79,31 @@ export default function ScanTab() {
               longitude: point.longitude,
             })),
           },
-          rules: rules.map((rule) => ({
-            id: rule.id,
-            text: rule.text,
-          })),
+          ruleIds: rules.map((rule) => rule.id),
         },
       });
-      console.log("Rules saved:", res);
-      const data = await res.json();
-      router.navigate("/(tabs)/collection");
-    })();
+      if (res.ok) {
+        router.navigate("/(tabs)/collection");
+        await end();
+      } else {
+        const err = await res.json();
+        await end(err.error);
+      }
+    } catch {
+      await end("Failed to connect with API.");
+    } finally {
+      submittingRef.current = false;
+    }
   };
-
-  /*
-  ・ゴミを散らかしてはいけません。
-  ・人を集めてください。
-  */
 
   return (
     <View style={styles.container}>
       {scanState === "camera" && <Camera onPictureTaken={onPictureTaken} />}
-      {scanState === "map" && <Map onLocationDecided={onLocationDecided} />}
+      {scanState === "map" && (
+        <Map onLocationDecided={onLocationDecided} end={end} />
+      )}
       {scanState === "confirm" && (
-        <Confirm onConfirm={onConfirm} rules={rules} />
+        <Confirm rules={rules} area={area} onConfirm={onConfirm} end={end} />
       )}
     </View>
   );
@@ -99,5 +112,6 @@ export default function ScanTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
 });
