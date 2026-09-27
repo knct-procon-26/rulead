@@ -3,20 +3,55 @@ import scan from "./scan";
 import test from "./test";
 import { serve } from "bun";
 import { qdrantClient } from "./lib/qdrantClient";
-import { ensureRulesCollection } from "./lib/qdrantSetup";
+import { COLLECTIONS, ensureCollections } from "./lib/qdrantSetup";
+import { AuthContext, requireAuth } from "./auth";
+import register from "./register";
+import { HTTPException } from "hono/http-exception";
+import { DrizzleQueryError } from "drizzle-orm";
+import rulesApi from "./rules";
+import collection from "./collection";
+import translateRule from "./translateRules";
+import report from "./report";
 
-const app = new Hono();
+const authRoutes = new Hono().route("/register", register);
 
-const routes = app
-  .get("/", (c) => {
-    return c.text("Hello Hono!");
-  })
-  .route("/api/scan", scan)
-  .route("/api/test", test);
+function pgCode(err: unknown) {
+  if (err instanceof DrizzleQueryError) {
+    return (err.cause as { code?: string } | undefined)?.code;
+  }
+  return undefined;
+}
 
-export type AppType = typeof routes;
+const apiRoutes = new Hono<AuthContext>()
+  .use(requireAuth)
+  .get("/me", (c) => c.json({ userId: c.var.userId }))
+  .route("/scan", scan)
+  .route("/test", test)
+  .route("/rules", rulesApi)
+  .route("/collection", collection)
+  .route("/translate", translateRule)
+  .route("/report", report)
+  .onError((err, c) => {
+    console.error(err);
+    if (err instanceof HTTPException)
+      return c.json({ error: err.message }, err.status);
+    switch (pgCode(err)) {
+      case "23503":
+        return c.json({ error: "referenced resource not found" }, 400);
+      case "23514":
+        return c.json({ error: "invalid data" }, 400);
+      case "40P01":
+        return c.json({ error: "conflict, please retry" }, 503);
+    }
 
-await ensureRulesCollection(qdrantClient);
+    return c.json({ error: "Internal Server Error" }, 500);
+  });
+
+const app = new Hono().route("/auth", authRoutes).route("/api", apiRoutes);
+
+export type AppType = typeof app;
+
+await ensureCollections(qdrantClient, Object.values(COLLECTIONS));
 
 // serve({
 //   fetch: app.fetch,

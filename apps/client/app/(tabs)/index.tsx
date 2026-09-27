@@ -1,30 +1,13 @@
-import { StyleSheet } from "react-native";
-import { Button } from "react-native"
+import { StyleSheet, Text, View } from "react-native";
+import Colors from "@/constants/Colors";
 
-import EditScreenInfo from "@/components/EditScreenInfo";
-import { Text, View } from "@/components/Themed";
-import { useTranslation } from "react-i18next";
-
-export default function TabOneScreen() {
-  const { t, i18n } = useTranslation();
-  const ChangeLanguage = (language : string) => {
-    i18n.changeLanguage(language);
-  }
+// TODO: 今いる公園のルールを表示する。
+// 公園のルールを取得する API ができたら、components/rules/ParkRules に
+// park と rules を渡すだけで確認画面と同じ見た目で表示できる。
+export default function RuleTab() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        {t('rulesTab.tabone')}
-      </Text> 
-      <View
-        style={styles.separator}
-        lightColor="#eee"
-        darkColor="rgba(255,255,255,0.1)"
-      />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
-      <View style={styles.buttonContainer}>
-        <Button title="日本語" onPress={() => ChangeLanguage("ja")}/>
-        <Button title="English" onPress={() => ChangeLanguage("en")}/>
-      </View>
+      <Text style={styles.text}>準備中です</Text>
     </View>
   );
 }
@@ -34,19 +17,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#225",
+    backgroundColor: Colors.background,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: "80%",
+  text: {
+    fontSize: 16,
+    color: Colors.subText,
   },
   buttonContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
-  }
+  },
 });
