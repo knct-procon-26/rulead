@@ -19,6 +19,10 @@ import { pickBonus, type Bonus } from "./lib/bonus";
 const MAX_GEOMETRY_POINTS = 20_000;
 const MAX_PARK_AREA_M2 = 5_000_000;
 const SAME_PARK_IOU = 0.8;
+const SAME_PARK_COVER = 0.5;
+const SAME_PARK_MIN_AREA_RATIO = 0.25;
+const SAME_NAME_DISTANCE_M = 50;
+const SAME_NAME_BBOX_DEG = 0.001;
 const PARK_CREATE_LOCK_KEY = 73_110_001;
 const SUGGEST_ACCEPT_WEIGHT = FULL_WEIGHT;
 
@@ -60,6 +64,10 @@ function toClosedRing(geometry: ParkInput["geometry"]): [number, number][] {
   return ring;
 }
 
+function normalizeParkName(name: string): string {
+  return name.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+}
+
 async function requireExistingPark(tx: Tx, id: number): Promise<number> {
   const [park] = await tx
     .select({ id: parks.id })
@@ -83,13 +91,14 @@ async function findOrCreatePark(
   const geom = sql`ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(polygon)}::text), 4326)`;
 
   const checked = await tx.execute(
-    sql`SELECT ST_IsValid(g) AS valid, ST_Area(g::geography) AS area FROM (SELECT ${geom} AS g) AS s`,
+    sql`SELECT ST_IsValid(g) AS valid, ST_Area(g::geography) AS area, ST_Area(g) AS planar_area FROM (SELECT ${geom} AS g) AS s`,
   );
   const row = checked.rows[0];
   if (!row || row.valid !== true) {
     throw new HTTPException(400, { message: "公園の範囲が正しくありません" });
   }
   const area = Number(row.area);
+  const planarArea = Number(row.planar_area);
   if (!Number.isFinite(area) || area <= 0) {
     throw new HTTPException(400, { message: "公園の範囲が正しくありません" });
   }
@@ -105,6 +114,8 @@ async function findOrCreatePark(
     .select({
       id: parks.id,
       iou: sql<number>`ST_Area(ST_Intersection(${parks.area}, ${geom})) / NULLIF(ST_Area(ST_Union(${parks.area}, ${geom})), 0)`,
+      inter: sql<number>`ST_Area(ST_Intersection(${parks.area}, ${geom}))`,
+      existingArea: sql<number>`ST_Area(${parks.area})`,
     })
     .from(parks)
     .where(
@@ -117,13 +128,64 @@ async function findOrCreatePark(
     .limit(50);
 
   let best: { id: number; iou: number } | null = null;
+  let bestCover: { id: number; cover: number } | null = null;
   for (const o of overlaps) {
     const iou = Number(o.iou);
     if (Number.isFinite(iou) && (best === null || iou > best.iou)) {
       best = { id: o.id, iou };
     }
+    const inter = Number(o.inter);
+    const existingArea = Number(o.existingArea);
+    const smaller = Math.min(existingArea, planarArea);
+    const larger = Math.max(existingArea, planarArea);
+    if (
+      !Number.isFinite(inter) ||
+      !Number.isFinite(smaller) ||
+      !Number.isFinite(larger) ||
+      smaller <= 0
+    ) {
+      continue;
+    }
+    const cover = inter / smaller;
+    if (
+      cover >= SAME_PARK_COVER &&
+      smaller / larger >= SAME_PARK_MIN_AREA_RATIO &&
+      (bestCover === null || cover > bestCover.cover)
+    ) {
+      bestCover = { id: o.id, cover };
+    }
   }
   if (best && best.iou >= SAME_PARK_IOU) return best.id;
+  if (bestCover) return bestCover.id;
+
+  const normalizedName = normalizeParkName(park.name);
+  if (normalizedName !== "") {
+    const nearby = await tx
+      .select({
+        id: parks.id,
+        name: parks.name,
+        dist: sql<number>`ST_Distance(${parks.area}::geography, ${geom}::geography)`,
+      })
+      .from(parks)
+      .where(
+        and(
+          isNull(parks.deletedAt),
+          sql`${parks.area} && ST_Expand(${geom}, ${SAME_NAME_BBOX_DEG}::float8)`,
+          sql`ST_DWithin(${parks.area}::geography, ${geom}::geography, ${SAME_NAME_DISTANCE_M}::float8)`,
+        ),
+      )
+      .limit(50);
+    let sameName: { id: number; dist: number } | null = null;
+    for (const p of nearby) {
+      if (normalizeParkName(p.name) !== normalizedName) continue;
+      const dist = Number(p.dist);
+      if (!Number.isFinite(dist)) continue;
+      if (sameName === null || dist < sameName.dist) {
+        sameName = { id: p.id, dist };
+      }
+    }
+    if (sameName) return sameName.id;
+  }
 
   const [inserted] = await tx
     .insert(parks)

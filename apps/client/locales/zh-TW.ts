@@ -61,8 +61,7 @@ const zhTW: Messages = {
       `顯示目前所在公園（${parkName}）的規則`,
     loadingRules: "正在載入規則…",
     noRules: "這個公園還沒有登錄任何規則",
-    parkNotSaved:
-      "手機裡沒有這個公園的資料。\n外出時靠近公園，就會自動取得。",
+    parkNotSaved: "手機裡沒有這個公園的資料。\n外出時靠近公園，就會自動取得。",
     parkLoadFailed: "無法載入公園的資料。",
     watchOff: `相機監看已關閉（可在「${tabs.you}」分頁的設定中變更）。`,
     watching:
@@ -78,7 +77,8 @@ const zhTW: Messages = {
     cameraPermissionMessage:
       "用來在手機內分析相機拍到的畫面。影像不會被儲存或傳送。",
     errorNotTracking: "目前不在外出中。",
-    errorNotStarted: "無法啟動。請確認權限設定，以及是否有其他 App 正在使用相機。",
+    errorNotStarted:
+      "無法啟動。請確認權限設定，以及是否有其他 App 正在使用相機。",
   },
 
   parkRules: {
@@ -158,6 +158,7 @@ const zhTW: Messages = {
 
   scanCamera: {
     shutter: "拍照",
+    hint: "請靠近拍攝，讓告示牌佔滿取景框。橫向的告示牌也可以把手機橫過來拍",
   },
 
   scanMap: {
@@ -179,6 +180,13 @@ const zhTW: Messages = {
     clearAll: "全部清除",
     retake: "重拍",
     decide: "確定是這個公園",
+    nearbyTitle: "附近找到了公園",
+    nearbyHint: "定位可能略有偏差。請選擇你所在的公園",
+    drawOwn: "都不是（自己畫範圍）",
+    chooseNearby: "從附近的公園中選擇",
+    chooseOther: "選擇其他公園",
+    guideTap: (n: number) => `請在地圖上點選公園的各個角（還需${n}個點）`,
+    editTip: "點一下點可刪除，長按可移動",
   },
 
   scanConfirm: {

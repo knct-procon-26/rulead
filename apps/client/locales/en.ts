@@ -190,6 +190,7 @@ const en: Messages = {
 
   scanCamera: {
     shutter: "Take photo",
+    hint: "Get close so the sign fills the frame. For wide signs, you can turn your phone sideways",
   },
 
   scanMap: {
@@ -211,6 +212,14 @@ const en: Messages = {
     clearAll: "Clear all",
     retake: "Retake",
     decide: "Use this park",
+    nearbyTitle: "Parks found nearby",
+    nearbyHint: "Your location may be a little off. Choose the park you're in",
+    drawOwn: "None of these (draw the area)",
+    chooseNearby: "Choose a nearby park",
+    chooseOther: "Choose a different park",
+    guideTap: (n: number) =>
+      `Tap the park's corners on the map (${n} more ${n === 1 ? "point" : "points"})`,
+    editTip: "Tap a point to remove it. Long-press to move it",
   },
 
   scanConfirm: {

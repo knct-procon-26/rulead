@@ -40,7 +40,8 @@ const vi: Messages = {
     network:
       "Không thể kết nối với máy chủ. Vui lòng thử lại ở nơi có kết nối mạng.",
     server: "Máy chủ gặp lỗi. Vui lòng thử lại sau.",
-    rateLimited: "Bạn đã dùng hết lượt hôm nay. Vui lòng quay lại vào ngày mai.",
+    rateLimited:
+      "Bạn đã dùng hết lượt hôm nay. Vui lòng quay lại vào ngày mai.",
     blocked: "Tài khoản này đã bị tạm ngưng.",
     notASign:
       "Không nhận ra đây là biển báo quy định. Hãy chụp lại sao cho biển báo nằm trọn trong khung.",
@@ -52,7 +53,7 @@ const vi: Messages = {
       "Tính năng ra ngoài và hiển thị quy định công viên hiện chỉ hỗ trợ Android.",
     readyTitle: "Chuẩn bị ra ngoài",
     readyDescription:
-      "Nhấn \"Ra ngoài\", khi bạn vào một công viên, ứng dụng sẽ báo cho bạn quy định của công viên đó.\nỞ các công viên đã có quy định, hình ảnh camera được phân tích ngay trên điện thoại và bạn sẽ nhận thông báo khi camera thấy thứ liên quan đến quy định.",
+      'Nhấn "Ra ngoài", khi bạn vào một công viên, ứng dụng sẽ báo cho bạn quy định của công viên đó.\nỞ các công viên đã có quy định, hình ảnh camera được phân tích ngay trên điện thoại và bạn sẽ nhận thông báo khi camera thấy thứ liên quan đến quy định.',
     outingTitle: "Đang ra ngoài",
     outingDescription:
       "Khi bạn vào công viên đã có quy định, quy định của công viên đó sẽ hiện ở đây và camera bắt đầu theo dõi.\nKhi bạn quay lại gần nơi xuất phát, chuyến ra ngoài sẽ tự động kết thúc.",
@@ -103,7 +104,8 @@ const vi: Messages = {
     loadFailed:
       "Không thể tải các công viên gần đây. Vui lòng thử lại ở nơi có kết nối mạng.",
     filterPlaceholder: "Lọc quy định (ví dụ: chó, bóng)",
-    noParksNearby: "Gần đây (khoảng 1 km) không có công viên nào đã có quy định.",
+    noParksNearby:
+      "Gần đây (khoảng 1 km) không có công viên nào đã có quy định.",
     noMatch: "Không tìm thấy",
     ruleSummary: (isShownPark: boolean, parkCount: number) =>
       `${isShownPark ? "Quy định của công viên đang xem · " : ""}Có ở ${parkCount} công viên gần đây`,
@@ -140,7 +142,7 @@ const vi: Messages = {
   outing: {
     preciseLocationTitle: "Cần vị trí chính xác",
     preciseLocationMessage:
-      "Vị trí được dùng để nhận biết khi bạn vào công viên. Vui lòng đặt vị trí thành \"Chính xác\" trong Cài đặt.",
+      'Vị trí được dùng để nhận biết khi bạn vào công viên. Vui lòng đặt vị trí thành "Chính xác" trong Cài đặt.',
     startedTitle: "Đã bắt đầu ra ngoài",
     cameraStartFailed:
       "Không thể khởi động camera nên bạn sẽ ra ngoài mà không có theo dõi bằng camera. Ứng dụng sẽ thử lại khi bạn mở lại.",
@@ -149,27 +151,29 @@ const vi: Messages = {
     notificationsNotAllowed:
       "Chưa cho phép thông báo nên bạn sẽ không nhận được thông báo về công viên và quy định.",
     backgroundNotAllowed:
-      "Vị trí chưa được đặt là \"Luôn cho phép\" nên khi điện thoại dừng ghi, việc ghi sẽ chỉ tiếp tục khi bạn mở ứng dụng.",
+      'Vị trí chưa được đặt là "Luôn cho phép" nên khi điện thoại dừng ghi, việc ghi sẽ chỉ tiếp tục khi bạn mở ứng dụng.',
   },
 
   tracker: {
     nativeMissing:
       "Không tìm thấy module gốc ParkTracker. Hãy khởi chạy bản development build (npx expo run:android) thay vì Expo Go.",
     androidOnly: "ParkTracker chỉ hỗ trợ Android.",
-    backgroundTitle: "Vui lòng đặt vị trí thành \"Luôn cho phép\"",
+    backgroundTitle: 'Vui lòng đặt vị trí thành "Luôn cho phép"',
     backgroundMessage:
       "Vị trí được dùng để báo cho bạn khi vào công viên gần đó, kể cả khi ứng dụng đã đóng.",
     backgroundMessageNextScreen:
-      " Ở màn hình tiếp theo, hãy chọn \"Luôn cho phép\".",
+      ' Ở màn hình tiếp theo, hãy chọn "Luôn cho phép".',
     trackerNotStarted:
       "Dịch vụ vị trí chưa khởi động. Vui lòng kiểm tra quyền của ứng dụng.",
     watchNotStarted:
       "Theo dõi bằng camera chưa khởi động. Vui lòng kiểm tra quyền camera và đảm bảo không có ứng dụng khác đang dùng camera.",
-    resetUnsupported: "Bản build này không hỗ trợ đặt lại thông báo vào công viên",
+    resetUnsupported:
+      "Bản build này không hỗ trợ đặt lại thông báo vào công viên",
   },
 
   scanCamera: {
     shutter: "Chụp ảnh",
+    hint: "Hãy đến gần để biển báo lấp đầy khung. Với biển báo nằm ngang, bạn có thể xoay ngang điện thoại",
   },
 
   scanMap: {
@@ -191,6 +195,14 @@ const vi: Messages = {
     clearAll: "Xóa tất cả",
     retake: "Chụp lại",
     decide: "Chọn công viên này",
+    nearbyTitle: "Tìm thấy công viên ở gần",
+    nearbyHint: "Vị trí có thể hơi lệch. Hãy chọn công viên bạn đang ở",
+    drawOwn: "Không phải (tự vẽ khu vực)",
+    chooseNearby: "Chọn công viên gần đây",
+    chooseOther: "Chọn công viên khác",
+    guideTap: (n: number) =>
+      `Chạm vào các góc của công viên trên bản đồ (còn ${n} điểm)`,
+    editTip: "Chạm vào một điểm để xóa. Nhấn giữ để di chuyển",
   },
 
   scanConfirm: {
@@ -205,7 +217,8 @@ const vi: Messages = {
     badge: "Thưởng!",
     verifyMessage: (parkName: string | null) =>
       `Người khác đã tìm thấy quy định này ở ${parkName ?? "công viên này"}.`,
-    suggestMessage: "Quy định này đã được tìm thấy ở một công viên khác gần đây.",
+    suggestMessage:
+      "Quy định này đã được tìm thấy ở một công viên khác gần đây.",
     question: (parkName: string | null) =>
       `Bạn có thấy quy định này ở ${parkName ?? "công viên này"}, nơi bạn đang ở không?`,
     accept: "Nhận (tôi đã thấy)",
@@ -225,7 +238,8 @@ const vi: Messages = {
       fewest: "Sưu tầm ít nhất",
     },
     share: (percent: string) => `${percent}% trên tổng số`,
-    empty: "Chưa có gì trong bộ sưu tập.\nHãy chụp biển báo để sưu tầm thêm quy định!",
+    empty:
+      "Chưa có gì trong bộ sưu tập.\nHãy chụp biển báo để sưu tầm thêm quy định!",
     loadFailed: "Không thể tải.\nMở lại tab để thử lại.",
   },
 
@@ -273,9 +287,9 @@ const vi: Messages = {
     privacy: "Quyền riêng tư",
     privacyText: [
       "• Khi ra ngoài, vị trí của bạn không được gửi lên máy chủ. Để lấy các công viên xung quanh, ứng dụng chỉ gửi tâm của một ô vuông khoảng 1 km. Việc bạn đang ở công viên nào chỉ được xác định trên điện thoại.",
-      "• Khi ra ngoài, hình ảnh camera chỉ được phân tích trên điện thoại và không bao giờ được lưu hay gửi đi. Chỉ tên của những thứ đã thấy (ví dụ \"chó\") được ghi trên điện thoại để làm nhật ký.",
+      '• Khi ra ngoài, hình ảnh camera chỉ được phân tích trên điện thoại và không bao giờ được lưu hay gửi đi. Chỉ tên của những thứ đã thấy (ví dụ "chó") được ghi trên điện thoại để làm nhật ký.',
       "• Khi bạn ghi nhận một biển báo, ảnh biển báo, vị trí hiện tại và phạm vi công viên sẽ được gửi lên máy chủ (vị trí hiện tại cũng được gửi đến dịch vụ bản đồ để xác định phạm vi công viên).",
-      "• Khi bạn gửi \"báo cáo\", thông tin quy định nào ở công viên nào sẽ được gửi lên máy chủ.",
+      '• Khi bạn gửi "báo cáo", thông tin quy định nào ở công viên nào sẽ được gửi lên máy chủ.',
       "• Để dịch quy định, các quy định đang hiển thị và ngôn ngữ của bạn sẽ được gửi lên máy chủ.",
     ].join("\n"),
 
@@ -373,20 +387,22 @@ const vi: Messages = {
     trackingTitle: "Đang kiểm tra các công viên gần đây",
     trackingText: "Bạn sẽ nhận thông báo khi vào công viên",
     outingEndedTitle: "Chào mừng bạn trở về",
-    outingEndedText: "Bạn đã quay lại gần nơi xuất phát nên chuyến ra ngoài đã kết thúc",
+    outingEndedText:
+      "Bạn đã quay lại gần nơi xuất phát nên chuyến ra ngoài đã kết thúc",
     enteredTitle: "Bạn đã vào {park}",
     enteredMore: "Chạm để xem các quy định khác",
     enteredNoRule: "Chạm để xem quy định",
     watchingTitle: "Đang theo dõi quy định tại {park}",
-    watchingText: "Hình ảnh được xử lý trên điện thoại, không được lưu hay gửi đi",
+    watchingText:
+      "Hình ảnh được xử lý trên điện thoại, không được lưu hay gửi đi",
     watchIdleTitle: "Đang ra ngoài",
     watchIdleText:
       "Khi bạn vào công viên đã có quy định, camera sẽ theo dõi các quy định",
     watchStop: "Dừng",
     endOuting: "Kết thúc ra ngoài",
     alertTitle: "Chú ý quy định tại {park}",
-    alertSeen: "Camera đã thấy \"{label}\"",
-    alertSeenTap: "Camera đã thấy \"{label}\" · Chạm để xem chi tiết",
+    alertSeen: 'Camera đã thấy "{label}"',
+    alertSeenTap: 'Camera đã thấy "{label}" · Chạm để xem chi tiết',
   },
 };
 

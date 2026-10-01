@@ -540,7 +540,7 @@ class ParkTrackerService : Service() {
 
     private fun buildTrackingNotification() =
         NotificationCompat.Builder(this, CH_TRACKING)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation) // 本番では自前の白抜きモノクロアイコン（R.drawable.xxx）に差し替える
+            .setSmallIcon(R.drawable.ic_stat_rulead)
             .setContentTitle(UiTexts.get(this, "trackingTitle"))
             .setContentText(UiTexts.get(this, "trackingText"))
             .setOngoing(true)
@@ -552,7 +552,7 @@ class ParkTrackerService : Service() {
         val nm = NotificationManagerCompat.from(this)
         if (!nm.areNotificationsEnabled()) return
         val n = NotificationCompat.Builder(this, CH_TRACKING)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_stat_rulead)
             .setContentTitle(UiTexts.get(this, "outingEndedTitle"))
             .setContentText(UiTexts.get(this, "outingEndedText"))
             .setAutoCancel(true)
@@ -572,7 +572,7 @@ class ParkTrackerService : Service() {
         // この公園のルールから、いちばん伝えたい1件（禁止 → 注意 → 案内の順）を本文に載せる
         val featured = WatchConfig.pickFeatured(WatchConfig.parseRulesOrEmpty(park.rulesJson))
         val builder = NotificationCompat.Builder(this, CH_ENTER)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_stat_rulead)
             .setContentTitle(UiTexts.get(this, "enteredTitle", "park" to UiTexts.parkName(this, park.name)))
         if (featured != null) {
             val text = featured.displayText

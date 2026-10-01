@@ -4,9 +4,26 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { useState, useRef } from "react";
-import { View, Pressable, StyleSheet, Image } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { View, Pressable, StyleSheet, Image, Text } from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import { useT } from "@/lib/i18n";
+
+function frameCornerSize(): number {
+  try {
+    const src = Image.resolveAssetSource(
+      require("../../assets/images/frame.png"),
+    );
+    const size = Math.max(src?.width ?? 0, src?.height ?? 0);
+    return Number.isFinite(size) && size > 0 ? size : 40;
+  } catch {
+    return 40;
+  }
+}
+const HINT_TOP = 40 + frameCornerSize() + 8;
 
 type props = {
   onPictureTaken: (photo: CameraCapturedPicture) => void;
@@ -21,22 +38,20 @@ export default function Camera({ onPictureTaken }: props) {
   const zoomRef = useRef(0);
   const startZoom = useRef(0);
   const pinchGesture = Gesture.Pinch()
-  .runOnJS(true)
-  .onBegin(() => {
-    startZoom.current = zoomRef.current;
-  })
-  .onUpdate((event) => {
-    const newZoom = Math.min(
-      Math.max(
-        startZoom.current + (event.scale - 1) * 0.5, 0
-      ),
-      1
-    );
+    .runOnJS(true)
+    .onBegin(() => {
+      startZoom.current = zoomRef.current;
+    })
+    .onUpdate((event) => {
+      const newZoom = Math.min(
+        Math.max(startZoom.current + (event.scale - 1) * 0.5, 0),
+        1,
+      );
 
-    zoomRef.current = newZoom;
-    setZoom(newZoom);
-  })
-  
+      zoomRef.current = newZoom;
+      setZoom(newZoom);
+    });
+
   if (!permission) {
     return <View></View>;
   }
@@ -62,7 +77,7 @@ export default function Camera({ onPictureTaken }: props) {
           <CameraView
             style={styles.camera}
             ref={(ref) => setCamera(ref)}
-            zoom = {zoom}
+            zoom={zoom}
           ></CameraView>
           <Image
             style={styles.frame1}
@@ -84,6 +99,9 @@ export default function Camera({ onPictureTaken }: props) {
           <View style={[styles.screen_base, styles.bottomScreen]}></View>
           <View style={[styles.screen_base, styles.leftScreen]}></View>
           <View style={[styles.screen_base, styles.rightScreen]}></View>
+          <View style={styles.hint} pointerEvents="none">
+            <Text style={styles.hintText}>{t.scanCamera.hint}</Text>
+          </View>
           <Pressable
             onPress={takePicture}
             style={styles.button}
@@ -171,5 +189,23 @@ const styles = StyleSheet.create({
     bottom: 100,
     right: 0,
     width: 35,
+  },
+  hint: {
+    position: "absolute",
+    top: HINT_TOP,
+    left: 43,
+    right: 43,
+    alignItems: "center",
+  },
+  hintText: {
+    color: "#ffffff",
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    borderRadius: 8,
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
 });

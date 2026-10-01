@@ -7,6 +7,9 @@ import { AuthContext } from "./auth";
 import { zValidator } from "./lib/validator";
 
 const MAX_AREAS = 20;
+const NEARBY_MAX_DISTANCE_M = 60;
+const NEARBY_BBOX_DEG = 0.0015;
+const MAX_NEARBY_AREAS = 5;
 
 const querySchema = z.object({
   lat: z.string(),
@@ -20,6 +23,16 @@ type AreaRow = {
   kind: string;
   ring: string;
 };
+
+type NearbyAreaRow = AreaRow & { dist: number | string };
+
+function toGeometry(ring: string) {
+  const line = JSON.parse(ring) as { coordinates: [number, number][] };
+  return line.coordinates.map(([longitude, latitude]) => ({
+    latitude,
+    longitude,
+  }));
+}
 
 const app = new Hono<AuthContext>();
 
@@ -49,21 +62,54 @@ const areasRoute = app.get("/", zValidator("query", querySchema), async (c) => {
     LIMIT ${MAX_AREAS}
   `);
 
-  const areas = result.rows.map((r) => {
-    const line = JSON.parse(r.ring) as { coordinates: [number, number][] };
-    return {
-      osmId: r.osmId,
-      name: r.name,
-      nameEn: r.nameEn,
-      kind: r.kind,
-      geometry: line.coordinates.map(([longitude, latitude]) => ({
-        latitude,
-        longitude,
-      })),
-    };
-  });
+  const areas = result.rows.map((r) => ({
+    osmId: r.osmId,
+    name: r.name,
+    nameEn: r.nameEn,
+    kind: r.kind,
+    geometry: toGeometry(r.ring),
+  }));
 
-  return c.json({ areas }, 200);
+  let nearby: {
+    osmId: string;
+    name: string;
+    nameEn: string | null;
+    kind: string;
+    distanceM: number;
+    geometry: { latitude: number; longitude: number }[];
+  }[] = [];
+  try {
+    const near = await db.execute<NearbyAreaRow>(sql`
+      SELECT a.osm_id AS "osmId", a.name, a.name_en AS "nameEn", a.kind,
+             ST_AsGeoJSON(ST_ExteriorRing(p.geom), 7) AS ring,
+             ST_Distance(p.geom::geography, ${point}::geography) AS dist
+      FROM osm_areas a
+      CROSS JOIN LATERAL ST_Dump(a.area) AS p
+      WHERE a.area && ST_Expand(${point}, ${NEARBY_BBOX_DEG}::float8)
+        AND NOT ST_Intersects(a.area, ${point})
+        AND ST_DWithin(p.geom::geography, ${point}::geography, ${NEARBY_MAX_DISTANCE_M}::float8)
+      ORDER BY dist ASC, a.id ASC
+      LIMIT ${MAX_NEARBY_AREAS}
+    `);
+    nearby = near.rows.flatMap((r) => {
+      const distanceM = Number(r.dist);
+      if (!Number.isFinite(distanceM)) return [];
+      return [
+        {
+          osmId: r.osmId,
+          name: r.name,
+          nameEn: r.nameEn,
+          kind: r.kind,
+          distanceM,
+          geometry: toGeometry(r.ring),
+        },
+      ];
+    });
+  } catch (e) {
+    console.error("nearby areas lookup failed", e);
+  }
+
+  return c.json({ areas, nearby }, 200);
 });
 
 export default areasRoute;

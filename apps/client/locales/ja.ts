@@ -175,6 +175,7 @@ const ja = {
 
   scanCamera: {
     shutter: "撮影する",
+    hint: "看板が枠いっぱいに写るまで近づいて撮ってください。横長の看板はスマホを横向きにしてもOKです",
   },
 
   scanMap: {
@@ -196,6 +197,14 @@ const ja = {
     clearAll: "全部消す",
     retake: "撮り直す",
     decide: "この公園で決定",
+    nearbyTitle: "近くに公園が見つかりました",
+    nearbyHint:
+      "位置情報が少しずれていることがあります。今いる公園を選んでください",
+    drawOwn: "どれでもない（自分で範囲を描く）",
+    chooseNearby: "近くの公園から選ぶ",
+    chooseOther: "違う公園を選ぶ",
+    guideTap: (n: number) => `公園の角を地図でタップしてください（あと${n}点）`,
+    editTip: "点はタップで消せます。長押しすると動かせます",
   },
 
   scanConfirm: {

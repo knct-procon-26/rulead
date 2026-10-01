@@ -11,9 +11,12 @@ export type ReverseGeocodeArea = {
   geometry: { latitude: number; longitude: number }[];
 };
 
+export type NearbyGeocodeArea = ReverseGeocodeArea & { distanceM: number };
+
 type reverseGeocodeResult = {
   address: string;
   areas: ReverseGeocodeArea[];
+  nearbyAreas: NearbyGeocodeArea[];
 };
 
 type addressResult = {
@@ -105,6 +108,13 @@ export async function reverseGeocode(
       name: a.name || a.nameEn || "",
       kind: a.kind,
       geometry: a.geometry,
+    })),
+    nearbyAreas: (Array.isArray(data.nearby) ? data.nearby : []).map((a) => ({
+      osmId: a.osmId,
+      name: a.name || a.nameEn || "",
+      kind: a.kind,
+      geometry: a.geometry,
+      distanceM: a.distanceM,
     })),
   };
 }

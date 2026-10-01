@@ -82,10 +82,11 @@ class RuleWatchService : LifecycleService() {
         private const val MIN_SUSPEND_MS = 1_000L          // これより短い一時停止はしない
 
         // ---- 判定 ----
-        private const val RECORD_MIN_CONFIDENCE = 0.6f     // 記録するラベルの確信度の下限（ML Kit にもこの値を渡す）
-        private const val ALERT_MIN_CONFIDENCE = 0.65f     // ルール通知に使うラベルの確信度の下限
-        private const val INSTANT_ALERT_CONFIDENCE = 0.8f  // これ以上はっきり見えたら1回で通知する（それ未満は2回見えたら）
-        private const val CONFIRM_WINDOW_MS = 35_000L      // この時間内に2回見えたら通知する（10秒間隔で、間に1回見逃しても2回と数える）
+        private const val RECORD_MIN_CONFIDENCE = 0.6f
+        private const val ALERT_MIN_CONFIDENCE = 0.5f
+        private const val INSTANT_ALERT_CONFIDENCE = 0.7f
+        private const val LABELER_MIN_CONFIDENCE = 0.5f
+        private const val CONFIRM_WINDOW_MS = 45_000L
         private const val ALERT_COOLDOWN_MS = 30L * 60 * 1000 // 同じ公園の同じルールを再通知するまでの間隔
         private const val DEBUG_MAX_DURATION_MS = 30L * 60 * 1000 // 開発用モードはこの時間で自動停止
         private val TARGET_SIZE = Size(640, 480)            // ラベリングには十分。大きくすると電池を食う
@@ -193,7 +194,7 @@ class RuleWatchService : LifecycleService() {
             if (!workerHandler.post(r)) Log.d(TAG, "worker is gone; task dropped")
         }
         labeler = ImageLabeling.getClient(
-            ImageLabelerOptions.Builder().setConfidenceThreshold(RECORD_MIN_CONFIDENCE).build(),
+            ImageLabelerOptions.Builder().setConfidenceThreshold(LABELER_MIN_CONFIDENCE).build(),
         )
         createChannels()
     }
@@ -545,30 +546,32 @@ class RuleWatchService : LifecycleService() {
 
     private fun onLabels(cfg: WatchConfig, labels: List<ImageLabel>) {
         if (!alive) return
-        val found = labels.filter { it.confidence >= RECORD_MIN_CONFIDENCE }
-        if (found.isEmpty()) return
+        val seen = labels.filter { it.confidence >= LABELER_MIN_CONFIDENCE }
+        if (seen.isEmpty()) return
         val now = System.currentTimeMillis()
 
-        // 日記用に、見えたもの（ラベルだけ）を記録する
-        store.recordSightings(
-            cfg.parkId, cfg.parkName, Store.dayOf(now),
-            found.map { Store.SeenLabel(it.index, it.text, it.confidence) },
-            now,
-        )
-        emit(
-            ParkTrackerModule.EVENT_WATCH_LABELS,
-            mapOf(
-                "parkId" to cfg.parkId,
-                "time" to now.toDouble(),
-                "labels" to found.map {
-                    mapOf("index" to it.index, "label" to it.text, "confidence" to it.confidence.toDouble())
-                },
-            ),
-        )
+        val found = seen.filter { it.confidence >= RECORD_MIN_CONFIDENCE }
+        if (found.isNotEmpty()) {
+            store.recordSightings(
+                cfg.parkId, cfg.parkName, Store.dayOf(now),
+                found.map { Store.SeenLabel(it.index, it.text, it.confidence) },
+                now,
+            )
+            emit(
+                ParkTrackerModule.EVENT_WATCH_LABELS,
+                mapOf(
+                    "parkId" to cfg.parkId,
+                    "time" to now.toDouble(),
+                    "labels" to found.map {
+                        mapOf("index" to it.index, "label" to it.text, "confidence" to it.confidence.toDouble())
+                    },
+                ),
+            )
+        }
 
         val elapsed = SystemClock.elapsedRealtime()
         for (rule in cfg.rules) {
-            val hit = found
+            val hit = seen
                 .filter { it.confidence >= ALERT_MIN_CONFIDENCE && rule.matches(it.index, it.text) }
                 .maxByOrNull { it.confidence } ?: continue
             val previousHit = lastHitAt.put(rule.id, elapsed)
@@ -637,7 +640,7 @@ class RuleWatchService : LifecycleService() {
         val cfg = activeConfig
         val debug = debugConfig != null
         NotificationCompat.Builder(this, CH_WATCH)
-            .setSmallIcon(android.R.drawable.ic_menu_camera) // 本番では自前の白抜きモノクロアイコンに差し替える
+            .setSmallIcon(R.drawable.ic_stat_rulead)
             .setContentTitle(
                 if (cfg != null) UiTexts.get(this, "watchingTitle", "park" to UiTexts.parkName(this, cfg.parkName))
                 else UiTexts.get(this, "watchIdleTitle"),
@@ -672,7 +675,7 @@ class RuleWatchService : LifecycleService() {
         val text = rule.displayText
         val body = "$text\n${UiTexts.get(this, "alertSeenTap", "label" to label)}"
         val builder = NotificationCompat.Builder(this, CH_ALERT)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_stat_rulead)
             .setContentTitle(title)
             .setContentText(text.ifEmpty { UiTexts.get(this, "alertSeen", "label" to label) })
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

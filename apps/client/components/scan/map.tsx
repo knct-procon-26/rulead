@@ -1,5 +1,10 @@
 import { api } from "@/lib/client";
-import { getCurrentLocation, reverseGeocode } from "@/lib/utility";
+import {
+  getCurrentLocation,
+  reverseGeocode,
+  type NearbyGeocodeArea,
+} from "@/lib/utility";
+import { formatDistance } from "@/lib/nearbySearch";
 import { getT, useT } from "@/lib/i18n";
 import Colors from "@/constants/Colors";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
@@ -7,7 +12,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,12 +19,14 @@ import {
   View,
 } from "react-native";
 import MapView, {
+  Circle,
   LatLng,
   Marker,
   Polygon,
   Polyline,
   PROVIDER_GOOGLE,
 } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   areaM2,
   closeRing,
@@ -58,11 +64,18 @@ type RegisteredPark = {
 
 type Vertex = LatLng & { id: number };
 
+type Suggestion = Candidate & { key: string; distanceM: number };
+
+type Step = "candidate" | "suggest" | "manual";
+
 const MAX_MANUAL_POINTS = 30;
 const MAX_MANUAL_AREA_M2 = 100_000; // 10ha
 const MIN_MANUAL_AREA_M2 = 20;
 const MAX_DISTANCE_FROM_HERE_M = 100;
 const MAX_NAME_LENGTH = 100;
+const NEARBY_SUGGEST_M = 60;
+const MAX_SUGGESTIONS = 3;
+const SAME_SHAPE_TOLERANCE_M = 5;
 
 const LOOKUP_TIMEOUT_MS = 15_000;
 const INITIAL_DELTA = 0.004;
@@ -70,6 +83,8 @@ const FIT_PADDING = { top: 48, right: 48, bottom: 48, left: 48 };
 
 const VERTEX_COLOR = "#f08c00";
 const HERE_COLOR = "#1c7ed6";
+const HERE_DOT_RADIUS_M = 5;
+const HERE_HALO_RADIUS_M = 15;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -168,6 +183,77 @@ function pickCandidate(
   return null;
 }
 
+function normalizeName(name: string): string {
+  return name.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+}
+
+function sameShape(a: LatLng[], b: LatLng[]): boolean {
+  const pts = a.slice(0, -1).slice(0, 30);
+  if (pts.length === 0) return false;
+  let near = 0;
+  for (const v of pts) {
+    if (distanceToRingM(b, v) <= SAME_SHAPE_TOLERANCE_M) near++;
+  }
+  return near >= pts.length * 0.8;
+}
+
+function pickSuggestions(
+  here: LatLng,
+  registered: RegisteredPark[],
+  nearbyAreas: NearbyGeocodeArea[],
+  address: string,
+): Suggestion[] {
+  const list: Suggestion[] = [];
+  for (const p of registered) {
+    const d = distanceToRingM(p.geometry, here);
+    if (!(d > 0 && d <= NEARBY_SUGGEST_M)) continue;
+    list.push({
+      key: `p${p.id}`,
+      source: "registered",
+      parkId: p.id,
+      name: p.name,
+      address: p.address !== "" ? p.address : address,
+      geometry: p.geometry,
+      distanceM: d,
+    });
+  }
+  const registeredNames = new Set(
+    list.map((s) => normalizeName(s.name)).filter((n) => n !== ""),
+  );
+  const seenOsm = new Set<string>();
+  for (const a of nearbyAreas) {
+    if (
+      a.geometry.length < 4 ||
+      !Number.isFinite(a.distanceM) ||
+      a.distanceM > NEARBY_SUGGEST_M ||
+      seenOsm.has(a.osmId)
+    ) {
+      continue;
+    }
+    seenOsm.add(a.osmId);
+    const n = normalizeName(a.name);
+    if (n !== "" && registeredNames.has(n)) continue;
+    if (
+      list.some(
+        (s) => s.source === "registered" && sameShape(a.geometry, s.geometry),
+      )
+    ) {
+      continue;
+    }
+    list.push({
+      key: `o${a.osmId}`,
+      source: "osm",
+      name: a.name,
+      address,
+      geometry: a.geometry,
+      distanceM: a.distanceM,
+    });
+  }
+  return list
+    .sort((x, y) => x.distanceM - y.distanceM)
+    .slice(0, MAX_SUGGESTIONS);
+}
+
 type IssueKind = "needPoints" | "crossing" | "tooSmall" | "tooLarge" | "tooFar";
 type Issue = { kind: IssueKind; isError: boolean };
 
@@ -201,12 +287,15 @@ export default function Map({ onLocationDecided, end }: Props) {
   const [searching, setSearching] = useState(false);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [address, setAddress] = useState("");
-  const [manual, setManual] = useState(false);
+  const [step, setStep] = useState<Step>("candidate");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [lookupFailed, setLookupFailed] = useState(false);
   const [vertices, setVertices] = useState<Vertex[]>([]);
   const [name, setName] = useState("");
   const [mapReady, setMapReady] = useState(false);
   const t = useT();
+  const insets = useSafeAreaInsets();
+  const manual = step === "manual";
 
   useEffect(() => {
     mountedRef.current = true;
@@ -247,28 +336,53 @@ export default function Map({ onLocationDecided, end }: Props) {
       }
 
       const addr = geo.status === "fulfilled" ? geo.value.address : "";
+      const registeredParks =
+        registered.status === "fulfilled" ? registered.value : [];
       const next = pickCandidate(
         location,
-        registered.status === "fulfilled" ? registered.value : [],
+        registeredParks,
         geo.status === "fulfilled" ? geo.value.areas : [],
         addr,
       );
+      const nextSuggestions =
+        next === null
+          ? pickSuggestions(
+              location,
+              registeredParks,
+              geo.status === "fulfilled" ? geo.value.nearbyAreas : [],
+              addr,
+            )
+          : [];
 
       setAddress(addr);
       setCandidate(next);
-      setManual(next === null);
+      setSuggestions(nextSuggestions);
+      setStep(
+        next !== null
+          ? "candidate"
+          : nextSuggestions.length > 0
+            ? "suggest"
+            : "manual",
+      );
       setLookupFailed(geo.status === "rejected");
       setSearching(false);
     })();
   }, [location]);
 
   useEffect(() => {
-    if (!mapReady || !candidate) return;
-    mapRef.current?.fitToCoordinates(candidate.geometry, {
+    if (!mapReady || !location) return;
+    let coords: LatLng[] | null = null;
+    if (step === "candidate" && candidate) {
+      coords = candidate.geometry;
+    } else if (step === "suggest" && suggestions.length > 0) {
+      coords = [location, ...suggestions.flatMap((s) => s.geometry)];
+    }
+    if (!coords) return;
+    mapRef.current?.fitToCoordinates(coords, {
       edgePadding: FIT_PADDING,
       animated: true,
     });
-  }, [mapReady, candidate]);
+  }, [mapReady, location, step, candidate, suggestions]);
 
   const issue = useMemo(
     () => (location ? manualIssue(vertices, location) : null),
@@ -285,7 +399,31 @@ export default function Map({ onLocationDecided, end }: Props) {
   }
 
   const canSubmit =
-    !searching && (manual ? issue === null : candidate !== null);
+    !searching &&
+    (manual ? issue === null : step === "candidate" && candidate !== null);
+
+  const pickSuggestion = (s: Suggestion) => {
+    setCandidate(s);
+    setStep("candidate");
+  };
+
+  const backToSuggestions = () => {
+    setCandidate(null);
+    setStep("suggest");
+  };
+
+  const drawOwn = () => {
+    setCandidate(null);
+    setStep("manual");
+  };
+
+  const guide: { text: string; tone: "todo" | "error" | "ok" } | null = !manual
+    ? null
+    : vertices.length < 3
+      ? { text: t.scanMap.guideTap(3 - vertices.length), tone: "todo" }
+      : issue
+        ? { text: t.scanMap.issues[issue.kind], tone: "error" }
+        : { text: t.scanMap.readyToSubmit, tone: "ok" };
 
   const addVertex = (c: LatLng) => {
     setVertices((prev) =>
@@ -326,7 +464,7 @@ export default function Map({ onLocationDecided, end }: Props) {
       });
       return;
     }
-    if (!candidate) return;
+    if (step !== "candidate" || !candidate) return;
     onLocationDecided({
       geometry: candidate.geometry,
       name: candidate.name,
@@ -338,7 +476,8 @@ export default function Map({ onLocationDecided, end }: Props) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior="padding"
+      keyboardVerticalOffset={insets.top}
     >
       <View style={styles.mapWrap}>
         <MapView
@@ -362,9 +501,37 @@ export default function Map({ onLocationDecided, end }: Props) {
             addVertex(ev.coordinate);
           }}
         >
-          <Marker coordinate={location} pinColor={HERE_COLOR} />
+          <Circle
+            center={location}
+            radius={HERE_HALO_RADIUS_M}
+            strokeWidth={0}
+            strokeColor="rgba(28, 126, 214, 0)"
+            fillColor="rgba(28, 126, 214, 0.18)"
+            zIndex={2}
+          />
+          <Circle
+            center={location}
+            radius={HERE_DOT_RADIUS_M}
+            strokeWidth={2}
+            strokeColor="#ffffff"
+            fillColor={HERE_COLOR}
+            zIndex={3}
+          />
 
-          {!manual && candidate && (
+          {step === "suggest" &&
+            suggestions.map((s) => (
+              <Polygon
+                key={s.key}
+                coordinates={s.geometry}
+                strokeColor="rgba(28, 126, 214, 0.9)"
+                fillColor="rgba(28, 126, 214, 0.15)"
+                strokeWidth={2}
+                tappable
+                onPress={() => pickSuggestion(s)}
+              />
+            ))}
+
+          {step === "candidate" && candidate && (
             <Polygon
               coordinates={candidate.geometry}
               strokeColor="rgba(9, 180, 0, 0.9)"
@@ -408,6 +575,22 @@ export default function Map({ onLocationDecided, end }: Props) {
               />
             ))}
         </MapView>
+
+        {guide && (
+          <View
+            style={[
+              styles.guide,
+              guide.tone === "error"
+                ? styles.guideError
+                : guide.tone === "ok"
+                  ? styles.guideOk
+                  : styles.guideTodo,
+            ]}
+            pointerEvents="none"
+          >
+            <Text style={styles.guideText}>{guide.text}</Text>
+          </View>
+        )}
 
         {manual && (
           <View style={styles.tools}>
@@ -457,17 +640,75 @@ export default function Map({ onLocationDecided, end }: Props) {
             <ActivityIndicator color={Colors.tint} />
             <Text style={styles.subText}>{t.scanMap.searching}</Text>
           </View>
+        ) : step === "suggest" ? (
+          <View style={styles.info}>
+            <Text style={styles.title}>{t.scanMap.nearbyTitle}</Text>
+            <Text style={styles.subText} numberOfLines={2}>
+              {t.scanMap.nearbyHint}
+            </Text>
+            <View style={styles.suggestList}>
+              {suggestions.map((s) => (
+                <Pressable
+                  key={s.key}
+                  style={({ pressed }) => [
+                    styles.suggestItem,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() => pickSuggestion(s)}
+                  accessibilityRole="button"
+                >
+                  <MaterialDesignIcons
+                    name="map-marker-outline"
+                    size={20}
+                    color={HERE_COLOR}
+                  />
+                  <Text style={styles.suggestName} numberOfLines={1}>
+                    {s.name || t.common.unnamedPark}
+                  </Text>
+                  <Text style={styles.suggestDistance}>
+                    {formatDistance(t, Math.max(1, s.distanceM))}
+                  </Text>
+                </Pressable>
+              ))}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.suggestItem,
+                  styles.suggestDraw,
+                  pressed && styles.pressed,
+                ]}
+                onPress={drawOwn}
+                accessibilityRole="button"
+              >
+                <MaterialDesignIcons
+                  name="vector-polygon"
+                  size={20}
+                  color={VERTEX_COLOR}
+                />
+                <Text style={styles.suggestName} numberOfLines={1}>
+                  {t.scanMap.drawOwn}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
         ) : manual ? (
           <View style={styles.info}>
             <Text style={styles.title}>
               {lookupFailed ? t.scanMap.lookupFailed : t.scanMap.notFound}
             </Text>
-            <Text
-              style={[styles.subText, issue?.isError && styles.error]}
-              numberOfLines={2}
-            >
-              {issue ? t.scanMap.issues[issue.kind] : t.scanMap.readyToSubmit}
+            <Text style={styles.subText} numberOfLines={2}>
+              {vertices.length === 0
+                ? t.scanMap.issues.needPoints
+                : t.scanMap.editTip}
             </Text>
+            {suggestions.length > 0 && (
+              <Pressable
+                onPress={backToSuggestions}
+                accessibilityRole="button"
+                hitSlop={8}
+              >
+                <Text style={styles.link}>{t.scanMap.chooseNearby}</Text>
+              </Pressable>
+            )}
             <TextInput
               style={styles.nameInput}
               value={name}
@@ -488,6 +729,15 @@ export default function Map({ onLocationDecided, end }: Props) {
                 {candidate.address}
               </Text>
             ) : null}
+            {suggestions.length > 0 && (
+              <Pressable
+                onPress={backToSuggestions}
+                accessibilityRole="button"
+                hitSlop={8}
+              >
+                <Text style={styles.link}>{t.scanMap.chooseOther}</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -510,21 +760,23 @@ export default function Map({ onLocationDecided, end }: Props) {
             />
             <Text style={styles.buttonText}>{t.scanMap.retake}</Text>
           </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              styles.submit,
-              !canSubmit && styles.disabled,
-              pressed && canSubmit && styles.pressed,
-            ]}
-            onPress={submit}
-            disabled={!canSubmit}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canSubmit }}
-          >
-            <MaterialDesignIcons name="check" size={18} color="#ffffff" />
-            <Text style={styles.buttonText}>{t.scanMap.decide}</Text>
-          </Pressable>
+          {step !== "suggest" && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                styles.submit,
+                !canSubmit && styles.disabled,
+                pressed && canSubmit && styles.pressed,
+              ]}
+              onPress={submit}
+              disabled={!canSubmit}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canSubmit }}
+            >
+              <MaterialDesignIcons name="check" size={18} color="#ffffff" />
+              <Text style={styles.buttonText}>{t.scanMap.decide}</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -561,6 +813,62 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#ffffff",
     elevation: 2,
+  },
+  guide: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    right: 68,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    elevation: 2,
+  },
+  guideTodo: {
+    backgroundColor: "rgba(240, 140, 0, 0.95)",
+  },
+  guideError: {
+    backgroundColor: "rgba(224, 49, 49, 0.95)",
+  },
+  guideOk: {
+    backgroundColor: "rgba(47, 158, 68, 0.95)",
+  },
+  guideText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  suggestList: {
+    marginTop: 6,
+    gap: 8,
+  },
+  suggestItem: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+  },
+  suggestDraw: {
+    borderStyle: "dashed",
+  },
+  suggestName: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: 15,
+  },
+  suggestDistance: {
+    color: Colors.subText,
+    fontSize: 13,
+  },
+  link: {
+    marginTop: 4,
+    color: HERE_COLOR,
+    fontSize: 14,
+    fontWeight: "bold",
   },
   attribution: {
     position: "absolute",
