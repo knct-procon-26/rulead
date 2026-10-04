@@ -1,16 +1,25 @@
 import {
   CameraCapturedPicture,
   CameraView,
+  PermissionStatus,
   useCameraPermissions,
 } from "expo-camera";
-import { useState, useRef } from "react";
-import { View, Pressable, StyleSheet, Image, Text } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Pressable,
+  StyleSheet,
+  Image,
+  Text,
+  Linking,
+} from "react-native";
 import {
   Gesture,
   GestureDetector,
   GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import { useT } from "@/lib/i18n";
+import Colors from "@/constants/Colors";
 
 function frameCornerSize(): number {
   try {
@@ -34,6 +43,20 @@ export default function Camera({ onPictureTaken }: props) {
   const [camera, setCamera] = useState<CameraView | null>(null);
   const [zoom, setZoom] = useState(0);
   const t = useT();
+  const askedRef = useRef(false);
+
+  // 許可の確認は描画中ではなく effect で1回だけ行う
+  // （描画中に呼ぶと、拒否されたときに確認→再描画→確認…を繰り返すため）
+  useEffect(() => {
+    if (
+      permission &&
+      permission.status === PermissionStatus.UNDETERMINED &&
+      !askedRef.current
+    ) {
+      askedRef.current = true;
+      requestPermission().catch((e) => console.warn(e));
+    }
+  }, [permission, requestPermission]);
 
   const zoomRef = useRef(0);
   const startZoom = useRef(0);
@@ -57,8 +80,25 @@ export default function Camera({ onPictureTaken }: props) {
   }
 
   if (!permission.granted) {
-    requestPermission();
-    return <View></View>;
+    if (permission.status === PermissionStatus.UNDETERMINED) {
+      return <View></View>;
+    }
+    // 拒否されている：iOS ではもう確認ダイアログを出せないので、設定へ案内する
+    return (
+      <View style={styles.denied}>
+        <Text style={styles.deniedText}>{t.scanCamera.permissionDenied}</Text>
+        <Pressable
+          onPress={() => Linking.openSettings().catch((e) => console.warn(e))}
+          style={({ pressed }) => [
+            styles.deniedButton,
+            pressed && { opacity: 0.6 },
+          ]}
+          accessibilityRole="button"
+        >
+          <Text style={styles.deniedButtonText}>{t.common.openSettings}</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   async function takePicture() {
@@ -117,6 +157,30 @@ export default function Camera({ onPictureTaken }: props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  denied: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    gap: 16,
+  },
+  deniedText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: Colors.text,
+    textAlign: "center",
+  },
+  deniedButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.tint,
+  },
+  deniedButtonText: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: Colors.background,
   },
   camera: {
     flex: 1,

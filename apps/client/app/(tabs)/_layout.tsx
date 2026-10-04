@@ -5,6 +5,8 @@ import Colors from "@/constants/Colors";
 import { useT } from "@/lib/i18n";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+// iOS 版は撮影者の機能だけ：コレクション（左）・スキャン（中央）・You（右）。
+// スキャンは "/"（index）なので、起動時はスキャンタブが開く。
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -22,66 +24,32 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: t.tabs.rules,
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: "chevron.left.forwardslash.chevron.right",
-                android: "front_hand",
-                web: "front_hand",
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="diary"
-        options={{
-          title: t.tabs.diary,
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: "chevron.left.forwardslash.chevron.right",
-                android: "history",
-                web: "history",
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="scan"
-        options={{
-          title: t.tabs.scan,
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: "chevron.left.forwardslash.chevron.right",
-                android: "photo",
-                web: "photo",
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="collection"
         options={{
           title: t.tabs.collection,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: "chevron.left.forwardslash.chevron.right",
+                ios: "books.vertical",
                 android: "collections_bookmark",
                 web: "collections_bookmark",
+              }}
+              tintColor={color}
+              size={28}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t.tabs.scan,
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: "camera.viewfinder",
+                android: "photo",
+                web: "photo",
               }}
               tintColor={color}
               size={28}
@@ -96,7 +64,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: "chevron.left.forwardslash.chevron.right",
+                ios: "person.crop.circle",
                 android: "person",
                 web: "person",
               }}

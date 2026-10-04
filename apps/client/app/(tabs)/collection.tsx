@@ -24,7 +24,6 @@ import {
   SortPicker,
   type SortOption,
 } from "@/components/collection/SortPicker";
-import * as ParkTracker from "@/modules/park-tracker";
 
 type Badge = "new" | "+1" | "none";
 type Rarity = "common" | "rare" | "epic" | "legend";
@@ -85,18 +84,8 @@ function lookOf(rarity: Rarity | undefined) {
   return null;
 }
 
-async function countVisitedParks(): Promise<number | null> {
-  try {
-    const visits = await ParkTracker.getVisits(0);
-    return new Set(visits.map((v) => v.parkId)).size;
-  } catch {
-    return null;
-  }
-}
-
 export default function CollectionTab() {
   const [signCount, setSignCount] = useState<number | null>(null);
-  const [parkCount, setParkCount] = useState<number | null>(null);
   const [rules, setRules] = useState<CollectedRule[] | null>(null);
   const [total, setTotal] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -114,13 +103,22 @@ export default function CollectionTab() {
     [rules, sortKey],
   );
 
+  // 登録した総ルール数＝自分のコレクションの個数（×n）の合計
+  const ruleCount = useMemo(
+    () =>
+      rules === null
+        ? null
+        : rules.reduce(
+            (sum, r) => sum + (Number.isFinite(r.count) ? r.count : 0),
+            0,
+          ),
+    [rules],
+  );
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       setFailed(false);
-      countVisitedParks().then((n) => {
-        if (!cancelled) setParkCount(n);
-      });
       (async () => {
         try {
           const res = await api.api.collection.$get();
@@ -180,8 +178,8 @@ export default function CollectionTab() {
           <Text style={styles.statValue}>{signCount ?? "-"}</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>{t.collection.parks}</Text>
-          <Text style={styles.statValue}>{parkCount ?? "-"}</Text>
+          <Text style={styles.statLabel}>{t.collection.totalRules}</Text>
+          <Text style={styles.statValue}>{ruleCount ?? "-"}</Text>
         </View>
       </View>
       <View style={styles.toolbar}>

@@ -191,6 +191,8 @@ const en: Messages = {
   scanCamera: {
     shutter: "Take photo",
     hint: "Get close so the sign fills the frame. For wide signs, you can turn your phone sideways",
+    permissionDenied:
+      "Camera access is needed to photograph signs. Please allow camera access in Settings.",
   },
 
   scanMap: {
@@ -243,7 +245,7 @@ const en: Messages = {
 
   collection: {
     signs: "Signs photographed",
-    parks: "Parks visited",
+    totalRules: "Rules registered",
     sortTitle: "Sort",
     sort: {
       recent: "Newest",
@@ -262,7 +264,7 @@ const en: Messages = {
     settings: "Settings",
     language: "Language",
     languageNote:
-      "Changes the language of the app, park rules and notifications during outings. If the app isn't available in the language you choose, the app is shown in English and the rules in that language (rules in notifications change from the next time park information is downloaded).",
+      "Changes the language of the app and the rules. If the app isn't available in the language you choose, the app is shown in English and only the rules are shown in that language.",
     cameraWatchSetting: "Camera watch during outings",
     cameraWatchNote:
       "When off, the camera isn't used in parks and you'll only be notified when you enter a park.",
@@ -301,10 +303,7 @@ const en: Messages = {
 
     privacy: "Privacy",
     privacyText: [
-      "• During outings, your location is not sent to the server. Only the center of a roughly 1 km square area is sent to get nearby parks, and which park you're in is determined on this device.",
-      '• During outings, camera images are checked on this device only and are never saved or sent. Only the names of what was seen (such as "Dog") are recorded on this device for the diary.',
       "• When you register a sign, the photo of the sign, your location and the park's area are sent to the server (your location is also sent to a map service to find the park's area).",
-      "• When you send a report, which rule at which park is sent to the server.",
       "• To translate the rules, the rules shown and your language are sent to the server.",
     ].join("\n"),
 

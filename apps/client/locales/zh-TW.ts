@@ -159,6 +159,8 @@ const zhTW: Messages = {
   scanCamera: {
     shutter: "拍照",
     hint: "請靠近拍攝，讓告示牌佔滿取景框。橫向的告示牌也可以把手機橫過來拍",
+    permissionDenied:
+      "拍攝告示牌需要相機權限。請在設定中允許存取相機。",
   },
 
   scanMap: {
@@ -210,7 +212,7 @@ const zhTW: Messages = {
 
   collection: {
     signs: "拍攝的告示牌",
-    parks: "去過的公園",
+    totalRules: "登錄的規則",
     sortTitle: "排序",
     sort: {
       recent: "最新",
@@ -229,7 +231,7 @@ const zhTW: Messages = {
     settings: "設定",
     language: "顯示語言",
     languageNote:
-      "會變更 App 的顯示、公園規則與外出時通知的語言。若選擇 App 尚未支援的語言，App 會以英文顯示，規則則以所選語言顯示（通知中的規則從下次取得公園資料時開始變更）。",
+      "會變更 App 的顯示與規則的語言。若選擇 App 尚未支援的語言，App 會以英文顯示，只有規則以所選語言顯示。",
     cameraWatchSetting: "外出時的相機監看",
     cameraWatchNote: "關閉後，在公園裡不會使用相機，只會在進入公園時通知你。",
     openNotificationSettings: "開啟通知設定",
@@ -265,10 +267,7 @@ const zhTW: Messages = {
 
     privacy: "隱私",
     privacyText: [
-      "・外出時不會將你的目前位置傳送到伺服器。取得周圍公園時，只會傳送約 1 公里見方區塊的中心點。你在哪個公園裡，只在手機內判斷。",
-      "・外出時相機的影像只在手機內分析，影像不會被儲存或傳送。只會把看到的東西的名稱（例如「狗」）記錄在手機裡，用於日記。",
       "・登錄告示牌時，會將告示牌的照片、目前位置與公園的範圍傳送到伺服器（為了查詢公園的範圍，目前位置也會傳送給地圖服務）。",
-      "・送出「回報」時，會將哪個公園的哪條規則傳送到伺服器。",
       "・為了翻譯規則，會將顯示中的規則與語言傳送到伺服器。",
     ].join("\n"),
 

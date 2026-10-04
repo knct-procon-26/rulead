@@ -174,6 +174,8 @@ const vi: Messages = {
   scanCamera: {
     shutter: "Chụp ảnh",
     hint: "Hãy đến gần để biển báo lấp đầy khung. Với biển báo nằm ngang, bạn có thể xoay ngang điện thoại",
+    permissionDenied:
+      "Cần quyền truy cập camera để chụp biển báo. Vui lòng cho phép truy cập camera trong Cài đặt.",
   },
 
   scanMap: {
@@ -227,7 +229,7 @@ const vi: Messages = {
 
   collection: {
     signs: "Biển báo đã chụp",
-    parks: "Công viên đã đến",
+    totalRules: "Quy định đã ghi nhận",
     sortTitle: "Sắp xếp",
     sort: {
       recent: "Mới nhất",
@@ -247,7 +249,7 @@ const vi: Messages = {
     settings: "Cài đặt",
     language: "Ngôn ngữ",
     languageNote:
-      "Thay đổi ngôn ngữ của ứng dụng, quy định công viên và thông báo khi ra ngoài. Nếu ứng dụng chưa hỗ trợ ngôn ngữ bạn chọn, ứng dụng sẽ hiển thị bằng tiếng Anh còn quy định sẽ hiển thị bằng ngôn ngữ đó (quy định trong thông báo sẽ thay đổi từ lần tải thông tin công viên tiếp theo).",
+      "Thay đổi ngôn ngữ của ứng dụng và các quy định. Nếu ứng dụng chưa hỗ trợ ngôn ngữ bạn chọn, ứng dụng sẽ hiển thị bằng tiếng Anh và chỉ các quy định hiển thị bằng ngôn ngữ đó.",
     cameraWatchSetting: "Theo dõi bằng camera khi ra ngoài",
     cameraWatchNote:
       "Khi tắt, camera sẽ không được dùng trong công viên và bạn chỉ nhận thông báo khi vào công viên.",
@@ -286,10 +288,7 @@ const vi: Messages = {
 
     privacy: "Quyền riêng tư",
     privacyText: [
-      "• Khi ra ngoài, vị trí của bạn không được gửi lên máy chủ. Để lấy các công viên xung quanh, ứng dụng chỉ gửi tâm của một ô vuông khoảng 1 km. Việc bạn đang ở công viên nào chỉ được xác định trên điện thoại.",
-      '• Khi ra ngoài, hình ảnh camera chỉ được phân tích trên điện thoại và không bao giờ được lưu hay gửi đi. Chỉ tên của những thứ đã thấy (ví dụ "chó") được ghi trên điện thoại để làm nhật ký.',
       "• Khi bạn ghi nhận một biển báo, ảnh biển báo, vị trí hiện tại và phạm vi công viên sẽ được gửi lên máy chủ (vị trí hiện tại cũng được gửi đến dịch vụ bản đồ để xác định phạm vi công viên).",
-      '• Khi bạn gửi "báo cáo", thông tin quy định nào ở công viên nào sẽ được gửi lên máy chủ.',
       "• Để dịch quy định, các quy định đang hiển thị và ngôn ngữ của bạn sẽ được gửi lên máy chủ.",
     ].join("\n"),
 
