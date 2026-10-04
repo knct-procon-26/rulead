@@ -36,6 +36,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8cbbf09f-9f5a-4ebc-a53a-0f02f7686a51"
+      }
+    },
+    "owner": "waryus-team"
   }
 }
