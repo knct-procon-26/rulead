@@ -54,6 +54,9 @@ declare class ParkTrackerNativeModule extends NativeModule<ParkTrackerEvents> {
   clearSightings(before: number): Promise<number>;
   getRuleAlerts(from: number, to: number): Promise<RuleAlert[]>;
   clearRuleAlerts(before: number): Promise<number>;
+
+  startOrientationWatch?(): Promise<void>;
+  stopOrientationWatch?(): Promise<void>;
 }
 
 export default requireOptionalNativeModule<ParkTrackerNativeModule>(

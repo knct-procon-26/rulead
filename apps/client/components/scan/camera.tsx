@@ -3,14 +3,24 @@ import {
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import { useState, useRef } from "react";
-import { View, Pressable, StyleSheet, Image, Text } from "react-native";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  View,
+  Pressable,
+  StyleSheet,
+  Image,
+  Text,
+  type LayoutChangeEvent,
+  type ViewStyle,
+} from "react-native";
 import {
   Gesture,
   GestureDetector,
   GestureHandlerRootView,
 } from "react-native-gesture-handler";
+import { useFocusEffect } from "expo-router";
 import { useT } from "@/lib/i18n";
+import * as ParkTracker from "@/modules/park-tracker";
 
 function frameCornerSize(): number {
   try {
@@ -23,7 +33,39 @@ function frameCornerSize(): number {
     return 40;
   }
 }
-const HINT_TOP = 40 + frameCornerSize() + 8;
+const FRAME_CORNER = frameCornerSize();
+const HINT_TOP = 40 + FRAME_CORNER + 8;
+const HINT_SIDE_INSET = 35 + FRAME_CORNER + 8;
+const HINT_SPAN_TOP = 40 + 8;
+const HINT_SPAN_BOTTOM = 100 + 8;
+const HINT_BAND = 120;
+
+type Size = { width: number; height: number };
+
+function sidewaysHintStyle(
+  rotation: ParkTracker.DeviceRotation,
+  size: Size | null,
+): ViewStyle | null {
+  if (size === null || (rotation !== 90 && rotation !== 270)) return null;
+  const length = size.height - HINT_SPAN_TOP - HINT_SPAN_BOTTOM;
+  const band = Math.min(HINT_BAND, size.width - HINT_SIDE_INSET * 2);
+  if (length <= 0 || band <= 0) return null;
+  const centerY = HINT_SPAN_TOP + length / 2;
+  const centerX =
+    rotation === 270
+      ? size.width - HINT_SIDE_INSET - band / 2
+      : HINT_SIDE_INSET + band / 2;
+  return {
+    position: "absolute",
+    left: centerX - length / 2,
+    top: centerY - band / 2,
+    width: length,
+    height: band,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    transform: [{ rotate: rotation === 270 ? "90deg" : "-90deg" }],
+  };
+}
 
 type props = {
   onPictureTaken: (photo: CameraCapturedPicture) => void;
@@ -33,7 +75,36 @@ export default function Camera({ onPictureTaken }: props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [camera, setCamera] = useState<CameraView | null>(null);
   const [zoom, setZoom] = useState(0);
+  const [rotation, setRotation] = useState<ParkTracker.DeviceRotation>(0);
+  const [size, setSize] = useState<Size | null>(null);
   const t = useT();
+
+  useEffect(() => {
+    const sub = ParkTracker.addListener("DeviceOrientation", (e) =>
+      setRotation(e.degrees),
+    );
+    return () => sub.remove();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setRotation(0);
+      ParkTracker.startOrientationWatch().catch(() => {});
+      return () => {
+        ParkTracker.stopOrientationWatch().catch(() => {});
+        setRotation(0);
+      };
+    }, []),
+  );
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setSize((prev) =>
+      prev !== null && prev.width === width && prev.height === height
+        ? prev
+        : { width, height },
+    );
+  };
 
   const zoomRef = useRef(0);
   const startZoom = useRef(0);
@@ -73,7 +144,7 @@ export default function Camera({ onPictureTaken }: props) {
   return (
     <GestureHandlerRootView style={styles.container}>
       <GestureDetector gesture={pinchGesture}>
-        <View style={styles.container}>
+        <View style={styles.container} onLayout={onLayout}>
           <CameraView
             style={styles.camera}
             ref={(ref) => setCamera(ref)}
@@ -99,7 +170,10 @@ export default function Camera({ onPictureTaken }: props) {
           <View style={[styles.screen_base, styles.bottomScreen]}></View>
           <View style={[styles.screen_base, styles.leftScreen]}></View>
           <View style={[styles.screen_base, styles.rightScreen]}></View>
-          <View style={styles.hint} pointerEvents="none">
+          <View
+            style={sidewaysHintStyle(rotation, size) ?? styles.hint}
+            pointerEvents="none"
+          >
             <Text style={styles.hintText}>{t.scanCamera.hint}</Text>
           </View>
           <Pressable

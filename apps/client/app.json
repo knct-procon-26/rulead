@@ -19,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "club.prolab.rulead",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro",

@@ -146,6 +146,9 @@ export type RuleWatchStoppedEvent = { reason: RuleWatchStopReason };
 
 export type OutingEndedEvent = { reason: "returned"; time: number };
 
+export type DeviceRotation = 0 | 90 | 180 | 270;
+export type DeviceOrientationEvent = { degrees: DeviceRotation };
+
 export type ParkTrackerEvents = {
   ParkTrackerLocation: (e: LocationEvent) => void;
   ParkTrackerEnter: (e: EnterEvent) => void;
@@ -155,6 +158,7 @@ export type ParkTrackerEvents = {
   RuleWatchLabels: (e: RuleWatchLabelsEvent) => void;
   RuleWatchAlert: (e: RuleWatchAlertEvent) => void;
   RuleWatchStopped: (e: RuleWatchStoppedEvent) => void;
+  DeviceOrientation: (e: DeviceOrientationEvent) => void;
 };
 
 export type PermissionStatus = {

@@ -1,5 +1,6 @@
 import { QdrantClient, Schemas } from "@qdrant/js-client-rest";
 import { embedIcons, embedLabel } from "./icons2vectors";
+import { LABEL } from "./label";
 
 type Distance = "Cosine" | "Euclid" | "Dot" | "Manhattan";
 type Point = Schemas["PointStruct"];
@@ -9,23 +10,35 @@ export type CollectionConfig = {
   vectorSize: number;
   distance?: Distance;
   seed?: () => Point[] | Promise<Point[]>;
+  expectedCount?: number;
 };
 
 export async function ensureCollection(
   client: QdrantClient,
-  { name, vectorSize, distance = "Cosine", seed }: CollectionConfig,
+  {
+    name,
+    vectorSize,
+    distance = "Cosine",
+    seed,
+    expectedCount,
+  }: CollectionConfig,
 ) {
   const { exists } = await client.collectionExists(name);
 
-  if (
-    exists &&
-    seed &&
-    (await client.count(name, { exact: true })).count === 0
-  ) {
+  if (exists) {
+    if (!seed) {
+      console.log(`[qdrant] collection "${name}" は既に存在しています。`);
+      return;
+    }
+    const { count } = await client.count(name, { exact: true });
+    if (
+      count !== 0 &&
+      (expectedCount === undefined || count === expectedCount)
+    ) {
+      console.log(`[qdrant] collection "${name}" は既に存在しています。`);
+      return;
+    }
     await client.deleteCollection(name);
-  } else if (exists) {
-    console.log(`[qdrant] collection "${name}" は既に存在しています。`);
-    return;
   }
 
   await client.createCollection(name, {
@@ -131,5 +144,10 @@ async function defaultLabels(): Promise<Point[]> {
 export const COLLECTIONS = {
   rules: { name: "rules", vectorSize: 1536 },
   icons: { name: "icons", vectorSize: 1536, seed: defaultIcons },
-  labels: { name: "labels", vectorSize: 1536, seed: defaultLabels },
+  labels: {
+    name: "labels",
+    vectorSize: 1536,
+    seed: defaultLabels,
+    expectedCount: Object.keys(LABEL).length,
+  },
 } satisfies Record<string, CollectionConfig>;

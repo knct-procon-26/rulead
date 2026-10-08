@@ -424,6 +424,16 @@ export function clearRuleAlerts(before: number): Promise<number> {
   return native().clearRuleAlerts(before);
 }
 
+export async function startOrientationWatch(): Promise<void> {
+  if (!Native?.startOrientationWatch) return;
+  await Native.startOrientationWatch();
+}
+
+export async function stopOrientationWatch(): Promise<void> {
+  if (!Native?.stopOrientationWatch) return;
+  await Native.stopOrientationWatch();
+}
+
 export function addListener<K extends keyof ParkTrackerEvents>(
   event: K,
   listener: ParkTrackerEvents[K],

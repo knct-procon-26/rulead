@@ -25,11 +25,19 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.common.model.LocalModel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabel
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.ImageLabeling
+import com.google.mlkit.vision.label.custom.CustomImageLabelerOptions
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
+import com.google.mlkit.vision.objects.DetectedObject
+import com.google.mlkit.vision.objects.ObjectDetection
+import com.google.mlkit.vision.objects.ObjectDetector
+import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
 import java.util.concurrent.Executor
 import kotlin.math.abs
 import kotlin.math.max
@@ -90,6 +98,12 @@ class RuleWatchService : LifecycleService() {
         private const val ALERT_COOLDOWN_MS = 30L * 60 * 1000 // 同じ公園の同じルールを再通知するまでの間隔
         private const val DEBUG_MAX_DURATION_MS = 30L * 60 * 1000 // 開発用モードはこの時間で自動停止
         private val TARGET_SIZE = Size(640, 480)            // ラベリングには十分。大きくすると電池を食う
+
+        private const val OBJECT_MODEL_ASSET = "object_labeler.tflite"
+        private const val OBJECT_LABEL_OFFSET = 1000
+        private const val OBJECT_MAX_LABELS = 3
+        private const val SCENE_MAX_LABELS = 5
+        private val BASE_LABEL_INDEXES = setOf(1, 20, 153, 191, 298, 328, 360, 398)
 
         // ---- 通知 ----
         private const val FG_NOTIFICATION_ID = 1002         // ParkTrackerService は 1001
@@ -152,6 +166,10 @@ class RuleWatchService : LifecycleService() {
     /** worker スレッドで実行する Executor。スレッド終了後に積まれた処理は（例外にせず）捨てる */
     private lateinit var workerExecutor: Executor
     private lateinit var labeler: ImageLabeler
+    private var objectLabeler: ImageLabeler? = null
+    private var objectDetector: ObjectDetector? = null
+
+    private data class Seen(val index: Int, val text: String, val confidence: Float)
 
     /** 開発用モードの公園（通常は null）。main で書き、worker で読む */
     @Volatile private var debugConfig: WatchConfig? = null
@@ -196,6 +214,26 @@ class RuleWatchService : LifecycleService() {
         labeler = ImageLabeling.getClient(
             ImageLabelerOptions.Builder().setConfidenceThreshold(LABELER_MIN_CONFIDENCE).build(),
         )
+        try {
+            val model = LocalModel.Builder().setAssetFilePath(OBJECT_MODEL_ASSET).build()
+            objectLabeler = ImageLabeling.getClient(
+                CustomImageLabelerOptions.Builder(model)
+                    .setConfidenceThreshold(LABELER_MIN_CONFIDENCE)
+                    .setMaxResultCount(SCENE_MAX_LABELS)
+                    .build(),
+            )
+            objectDetector = ObjectDetection.getClient(
+                CustomObjectDetectorOptions.Builder(model)
+                    .setDetectorMode(CustomObjectDetectorOptions.SINGLE_IMAGE_MODE)
+                    .enableMultipleObjects()
+                    .enableClassification()
+                    .setClassificationConfidenceThreshold(LABELER_MIN_CONFIDENCE)
+                    .setMaxPerObjectLabelCount(OBJECT_MAX_LABELS)
+                    .build(),
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "object model unavailable", e)
+        }
         createChannels()
     }
 
@@ -255,6 +293,8 @@ class RuleWatchService : LifecycleService() {
         // 処理中の ML Kit のタスクがあっても、worker の列の最後で閉じる（結果の処理は alive=false で捨てられる）
         workerHandler.post {
             try { labeler.close() } catch (_: Exception) {}
+            try { objectLabeler?.close() } catch (_: Exception) {}
+            try { objectDetector?.close() } catch (_: Exception) {}
         }
         worker.quitSafely()
 
@@ -469,16 +509,19 @@ class RuleWatchService : LifecycleService() {
             // Bitmap にコピーしてから ML Kit に渡すので、ImageProxy はすぐ閉じてよい（finally）
             val input = InputImage.fromBitmap(image.toBitmap(), image.imageInfo.rotationDegrees)
             busy = true
-            labeler.process(input)
-                .addOnSuccessListener(workerExecutor) { labels ->
+            val base = labeler.process(input)
+            val scene = objectLabeler?.process(input)
+            val objects = objectDetector?.process(input)
+            Tasks.whenAllComplete(listOfNotNull<Task<*>>(base, scene, objects))
+                .addOnCompleteListener(workerExecutor) {
                     try {
-                        onLabels(cfg, labels)
+                        onLabels(cfg, collect(base, scene, objects))
                     } catch (ex: Exception) {
                         Log.e(TAG, "onLabels failed", ex)
+                    } finally {
+                        busy = false
                     }
                 }
-                .addOnFailureListener(workerExecutor) { ex -> Log.w(TAG, "labeling failed", ex) }
-                .addOnCompleteListener(workerExecutor) { busy = false }
         } catch (ex: Exception) {
             busy = false
             Log.w(TAG, "analyze failed", ex)
@@ -544,7 +587,47 @@ class RuleWatchService : LifecycleService() {
         }
     }
 
-    private fun onLabels(cfg: WatchConfig, labels: List<ImageLabel>) {
+    private fun collect(
+        base: Task<List<ImageLabel>>,
+        scene: Task<List<ImageLabel>>?,
+        objects: Task<List<DetectedObject>>?,
+    ): List<Seen> {
+        val best = LinkedHashMap<Int, Seen>()
+        fun add(index: Int, text: String?, confidence: Float) {
+            val prev = best[index]
+            if (prev == null || confidence > prev.confidence) best[index] = Seen(index, text ?: "", confidence)
+        }
+        if (base.isSuccessful) {
+            for (l in base.result.orEmpty()) {
+                if (l.index in BASE_LABEL_INDEXES) add(l.index, l.text, l.confidence)
+            }
+        } else {
+            Log.w(TAG, "labeling failed", base.exception)
+        }
+        if (scene != null) {
+            if (scene.isSuccessful) {
+                for (l in scene.result.orEmpty()) {
+                    if (l.index >= 0) add(OBJECT_LABEL_OFFSET + l.index, l.text, l.confidence)
+                }
+            } else {
+                Log.w(TAG, "scene labeling failed", scene.exception)
+            }
+        }
+        if (objects != null) {
+            if (objects.isSuccessful) {
+                for (o in objects.result.orEmpty()) {
+                    for (l in o.labels) {
+                        if (l.index >= 0) add(OBJECT_LABEL_OFFSET + l.index, l.text, l.confidence)
+                    }
+                }
+            } else {
+                Log.w(TAG, "object detection failed", objects.exception)
+            }
+        }
+        return best.values.toList()
+    }
+
+    private fun onLabels(cfg: WatchConfig, labels: List<Seen>) {
         if (!alive) return
         val seen = labels.filter { it.confidence >= LABELER_MIN_CONFIDENCE }
         if (seen.isEmpty()) return
@@ -587,13 +670,14 @@ class RuleWatchService : LifecycleService() {
         }
     }
 
-    private fun onAlert(cfg: WatchConfig, rule: WatchRule, hit: ImageLabel, now: Long) {
+    private fun onAlert(cfg: WatchConfig, rule: WatchRule, hit: Seen, now: Long) {
+        val label = rule.keywords.firstOrNull { it.index == hit.index && it.label.isNotEmpty() }?.label ?: hit.text
         // 先に記録する（通知が出せなくても再通知の間隔は守る）
         store.insertRuleAlert(
-            Store.RuleAlert(cfg.parkId, cfg.parkName, rule.id, rule.text, hit.index, hit.text, hit.confidence, now),
+            Store.RuleAlert(cfg.parkId, cfg.parkName, rule.id, rule.text, hit.index, label, hit.confidence, now),
         )
-        notifyAlert(cfg, rule, hit.text)
-        Log.d(TAG, "alert rule=${rule.id} label=${hit.text} (${hit.confidence})")
+        notifyAlert(cfg, rule, label)
+        Log.d(TAG, "alert rule=${rule.id} label=$label (${hit.confidence})")
         emit(
             ParkTrackerModule.EVENT_WATCH_ALERT,
             mapOf(
@@ -602,7 +686,7 @@ class RuleWatchService : LifecycleService() {
                 "ruleId" to rule.id,
                 "ruleText" to rule.text,
                 "labelIndex" to hit.index,
-                "label" to hit.text,
+                "label" to label,
                 "confidence" to hit.confidence.toDouble(),
                 "time" to now.toDouble(),
             ),

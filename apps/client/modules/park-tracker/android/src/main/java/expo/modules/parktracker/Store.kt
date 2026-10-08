@@ -34,7 +34,7 @@ class Store private constructor(ctx: Context) :
          * v4: park_details を追加。ルール入りのレスポンスを取り直すため parks_cache だけ空にする
          * v5: visited_parks を追加。移行時、残っている parks_cache から訪問済みの公園のジオメトリを埋める
          */
-        private const val DB_VERSION = 5
+        private const val DB_VERSION = 6
 
         @Volatile private var instance: Store? = null
         fun get(ctx: Context): Store =
@@ -171,6 +171,10 @@ class Store private constructor(ctx: Context) :
         if (oldVersion < 5) {
             createVisitedParksTable(db)
             backfillVisitedParks(db)
+        }
+        if (oldVersion < 6) {
+            db.delete("parks_cache", null, null)
+            db.delete("park_details", null, null)
         }
         // これ以降にスキーマを変えるときは、ここに if (oldVersion < 5) ... のように移行を足すこと
     }

@@ -29,8 +29,8 @@ data class WatchRule(
     val iconCode: Int = -1,
 ) {
     fun matches(labelIndex: Int, labelText: String): Boolean = keywords.any { k ->
-        (k.index >= 0 && k.index == labelIndex) ||
-            (k.label.isNotEmpty() && k.label.equals(labelText, ignoreCase = true))
+        if (k.index >= 0) k.index == labelIndex
+        else k.label.isNotEmpty() && k.label.equals(labelText, ignoreCase = true)
     }
 
     /** 通知に出す文（翻訳があれば翻訳、無ければ英語の原文） */

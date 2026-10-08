@@ -41,12 +41,30 @@ export async function embedIcons() {
     }
   }
 
-  Bun.write("icon_embeddings.json", JSON.stringify(result));
+  await Bun.write("icon_embeddings.json", JSON.stringify(result));
+}
+
+async function savedLabelsMatch(file: ReturnType<typeof Bun.file>) {
+  try {
+    const saved = (await file.json()) as {
+      [key: string]: { vector: number[]; text: string };
+    };
+    const keys = Object.keys(LABEL);
+    return (
+      Object.keys(saved).length === keys.length &&
+      keys.every(
+        (i) =>
+          saved[i]?.text === LABEL[i].en && Array.isArray(saved[i]?.vector),
+      )
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function embedLabel() {
   const file = Bun.file("label_embeddings.json");
-  if (await file.exists()) {
+  if ((await file.exists()) && (await savedLabelsMatch(file))) {
     console.log("既にあるよ");
     return;
   }
@@ -68,7 +86,7 @@ export async function embedLabel() {
     result[labels[j][0]] = { vector: data[j].embedding, text: labels[j][1] };
   }
 
-  Bun.write("label_embeddings.json", JSON.stringify(result));
+  await Bun.write("label_embeddings.json", JSON.stringify(result));
 }
 
 await embedIcons();
