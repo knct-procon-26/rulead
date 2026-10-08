@@ -9,7 +9,6 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.OrientationEventListener
 import androidx.core.content.ContextCompat
-import expo.modules.kotlin.Queues
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
@@ -59,6 +58,7 @@ class ParkTrackerModule : Module() {
         }
     }
 
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var orientationListener: OrientationEventListener? = null
     private var deviceRotation = 0
 
@@ -89,31 +89,34 @@ class ParkTrackerModule : Module() {
         OnDestroy {
             // リロード時に新しいモジュールが先に登録していたら消さない
             if (ParkTrackerService.eventSink === sink) ParkTrackerService.eventSink = null
-            Handler(Looper.getMainLooper()).post {
+            mainHandler.post {
                 orientationListener?.disable()
                 orientationListener = null
             }
         }
 
         AsyncFunction("startOrientationWatch") {
-            val listener = orientationListener ?: object : OrientationEventListener(context) {
-                override fun onOrientationChanged(orientation: Int) {
-                    if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) return
-                    val next = snapRotation(orientation, deviceRotation)
-                    if (next == deviceRotation) return
-                    deviceRotation = next
-                    sink(EVENT_DEVICE_ORIENTATION, mapOf("degrees" to next))
-                }
-            }.also { orientationListener = it }
-            deviceRotation = 0
-            if (listener.canDetectOrientation()) listener.enable()
+            val ctx = context
+            mainHandler.post {
+                val listener = orientationListener ?: object : OrientationEventListener(ctx) {
+                    override fun onOrientationChanged(orientation: Int) {
+                        if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) return
+                        val next = snapRotation(orientation, deviceRotation)
+                        if (next == deviceRotation) return
+                        deviceRotation = next
+                        sink(EVENT_DEVICE_ORIENTATION, mapOf("degrees" to next))
+                    }
+                }.also { orientationListener = it }
+                deviceRotation = 0
+                if (listener.canDetectOrientation()) listener.enable()
+            }
             Unit
-        }.runOnQueue(Queues.MAIN)
+        }
 
         AsyncFunction("stopOrientationWatch") {
-            orientationListener?.disable()
+            mainHandler.post { orientationListener?.disable() }
             Unit
-        }.runOnQueue(Queues.MAIN)
+        }
 
         /** start({ apiUrl, headers? })。必ずアプリが画面に表示されているときに呼ぶこと。 */
         AsyncFunction("start") { options: StartOptions ->
