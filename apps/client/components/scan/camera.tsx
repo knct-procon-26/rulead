@@ -5,6 +5,7 @@ import {
 } from "expo-camera";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
+  AppState,
   View,
   Pressable,
   StyleSheet,
@@ -77,6 +78,15 @@ export default function Camera({ onPictureTaken }: props) {
   const [zoom, setZoom] = useState(0);
   const [rotation, setRotation] = useState<ParkTracker.DeviceRotation>(0);
   const [size, setSize] = useState<Size | null>(null);
+  const [focused, setFocused] = useState(false);
+  const [appActive, setAppActive] = useState(
+    AppState.currentState !== "background",
+  );
+  const [cameraOn, setCameraOn] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
+  const retryCount = useRef(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const askedPermission = useRef(false);
   const t = useT();
 
   useEffect(() => {
@@ -86,16 +96,67 @@ export default function Camera({ onPictureTaken }: props) {
     return () => sub.remove();
   }, []);
 
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (s) =>
+      setAppActive(s !== "background"),
+    );
+    return () => sub.remove();
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (retryTimer.current !== null) clearTimeout(retryTimer.current);
+    },
+    [],
+  );
+
   useFocusEffect(
     useCallback(() => {
+      setFocused(true);
+      askedPermission.current = false;
       setRotation(0);
       ParkTracker.startOrientationWatch().catch(() => {});
       return () => {
+        setFocused(false);
         ParkTracker.stopOrientationWatch().catch(() => {});
         setRotation(0);
       };
     }, []),
   );
+
+  useEffect(() => {
+    if (!focused || !permission || permission.granted) return;
+    if (askedPermission.current) return;
+    askedPermission.current = true;
+    requestPermission().catch(() => {});
+  }, [focused, permission, requestPermission]);
+
+  const live = focused && appActive && permission?.granted === true;
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+    retryCount.current = 0;
+    ParkTracker.setScanCameraActive(true)
+      .catch(() => {})
+      .then(() => {
+        if (!cancelled) setCameraOn(true);
+      });
+    return () => {
+      cancelled = true;
+      setCameraOn(false);
+      ParkTracker.setScanCameraActive(false).catch(() => {});
+    };
+  }, [live]);
+
+  const onMountError = useCallback(() => {
+    if (retryCount.current >= 3) return;
+    retryCount.current++;
+    if (retryTimer.current !== null) clearTimeout(retryTimer.current);
+    retryTimer.current = setTimeout(() => {
+      retryTimer.current = null;
+      setCameraKey((k) => k + 1);
+    }, 700);
+  }, []);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -128,7 +189,6 @@ export default function Camera({ onPictureTaken }: props) {
   }
 
   if (!permission.granted) {
-    requestPermission();
     return <View></View>;
   }
 
@@ -145,11 +205,17 @@ export default function Camera({ onPictureTaken }: props) {
     <GestureHandlerRootView style={styles.container}>
       <GestureDetector gesture={pinchGesture}>
         <View style={styles.container} onLayout={onLayout}>
-          <CameraView
-            style={styles.camera}
-            ref={(ref) => setCamera(ref)}
-            zoom={zoom}
-          ></CameraView>
+          {live && cameraOn ? (
+            <CameraView
+              key={cameraKey}
+              style={styles.camera}
+              ref={(ref) => setCamera(ref)}
+              zoom={zoom}
+              onMountError={onMountError}
+            ></CameraView>
+          ) : (
+            <View style={[styles.camera, styles.cameraOff]} />
+          )}
           <Image
             style={styles.frame1}
             source={require("../../assets/images/frame.png")}
@@ -194,6 +260,9 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  cameraOff: {
+    backgroundColor: "black",
   },
   separator: {
     marginVertical: 30,

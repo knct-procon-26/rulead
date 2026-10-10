@@ -11,6 +11,7 @@ import android.view.OrientationEventListener
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.exception.Exceptions
+import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
@@ -84,6 +85,11 @@ class ParkTrackerModule : Module() {
 
         OnCreate {
             ParkTrackerService.eventSink = sink
+        }
+
+        // アプリが裏に回ったらスキャン画面はカメラを使っていない（JS が返し損ねても見守りが止まったままにならないように）
+        OnActivityEntersBackground {
+            RuleWatchService.setHostCameraInUse(false)
         }
 
         OnDestroy {
@@ -325,6 +331,15 @@ class ParkTrackerModule : Module() {
             RuleWatchService.requestStop()
             Unit
         }
+
+        /**
+         * setScanCameraActive(active)。スキャン画面がカメラを使い始める前に true、使い終えたら false を渡す。
+         * true の間は見守りのカメラを閉じて譲る（同じ CameraX を共有しているため、譲らないとプレビューが真っ黒になる）。
+         * main スレッドで実行するので、Promise が解決した時点でカメラは譲られている。
+         */
+        AsyncFunction("setScanCameraActive") { active: Boolean ->
+            RuleWatchService.setHostCameraInUse(active)
+        }.runOnQueue(Queues.MAIN)
 
         /** { running, cameraActive, parkId, parkName, debug } */
         AsyncFunction("getRuleWatchStatus") {

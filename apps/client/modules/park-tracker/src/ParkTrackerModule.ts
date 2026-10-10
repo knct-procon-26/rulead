@@ -50,6 +50,7 @@ declare class ParkTrackerNativeModule extends NativeModule<ParkTrackerEvents> {
   startRuleWatch(debugConfigJson: string): Promise<void>;
   stopRuleWatch(): Promise<void>;
   getRuleWatchStatus(): Promise<RuleWatchStatus>;
+  setScanCameraActive?(active: boolean): Promise<void>;
   getSightings(from: number, to: number): Promise<Sighting[]>;
   clearSightings(before: number): Promise<number>;
   getRuleAlerts(from: number, to: number): Promise<RuleAlert[]>;

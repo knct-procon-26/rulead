@@ -88,6 +88,8 @@ class RuleWatchService : LifecycleService() {
         private const val WARMUP_MS = 1_000L               // カメラを開いてから露出が落ち着くまで、判定に使わない時間
         private const val REOPEN_LEAD_MS = 1_500L          // 次の判定時刻のこれだけ前にカメラを開き直す（起動＋露出待ちの分）
         private const val MIN_SUSPEND_MS = 1_000L          // これより短い一時停止はしない
+        private const val HOST_RELEASE_DELAY_MS = 1_500L   // スキャン画面がカメラを返してから開き直すまで（画面側の後片付けを待つ）
+        private const val WATCHDOG_MS = 5_000L             // 他から外されていないか確かめる間隔
 
         // ---- 判定 ----
         private const val RECORD_MIN_CONFIDENCE = 0.6f
@@ -151,6 +153,27 @@ class RuleWatchService : LifecycleService() {
             }
         }
 
+        /**
+         * アプリのスキャン画面（expo-camera）がカメラを使っている間 true。main スレッドでだけ読み書きする。
+         * expo-camera とこのサービスは同じ ProcessCameraProvider（プロセスで1つ）を共有しているため、
+         *  - こちらが bind すると CameraX が「後から開始したほう」を優先し、スキャン画面のプレビューが止まって真っ黒になる
+         *  - expo-camera は開くとき・閉じるときに unbindAll() するので、こちらのカメラも黙って外される
+         * そこで、スキャン画面が使っている間はこちらのカメラを閉じて譲り、返されたら開き直す。
+         * サービスが動いていない間に呼ばれても覚えておく（譲っている間に起動しても bind しない）。
+         */
+        private var hostCameraInUse = false
+
+        /** スキャン画面がカメラを使い始めた（true）／使い終えた（false）。main スレッドで呼ぶと、譲る処理まで済んでから返る */
+        fun setHostCameraInUse(inUse: Boolean) {
+            if (Looper.myLooper() != Looper.getMainLooper()) {
+                Handler(Looper.getMainLooper()).post { setHostCameraInUse(inUse) }
+                return
+            }
+            if (hostCameraInUse == inUse) return
+            hostCameraInUse = inUse
+            current?.onHostCameraChanged(inUse)
+        }
+
         /** JS の stopRuleWatch() 用。動作中なら true */
         fun requestStop(): Boolean {
             val s = current ?: return false
@@ -191,6 +214,23 @@ class RuleWatchService : LifecycleService() {
     private val resumeCamera = Runnable {
         suspended = false
         if (alive && activeConfig != null) bindAnalysis()
+    }
+    /** スキャン画面がカメラを返したあと、少し待ってから開き直す */
+    private val rebindAfterHost = Runnable { ensureBound() }
+    /** 他（expo-camera の unbindAll など）にカメラを外されていたら開き直す */
+    private val watchdog = object : Runnable {
+        override fun run() {
+            if (!alive) return
+            val a = analysis
+            val p = cameraProvider
+            if (a != null && p != null && !isBoundSafe(p, a)) {
+                Log.d(TAG, "camera was unbound elsewhere; rebinding")
+                a.clearAnalyzer()
+                analysis = null
+                ensureBound()
+            }
+            mainHandler.postDelayed(this, WATCHDOG_MS)
+        }
     }
 
     // ---- worker スレッドからしか触らない ----
@@ -277,6 +317,8 @@ class RuleWatchService : LifecycleService() {
             cameraRequested = true
             prepareCamera()
         }
+        mainHandler.removeCallbacks(watchdog)
+        mainHandler.postDelayed(watchdog, WATCHDOG_MS)
         requestRefresh()
         Log.d(TAG, if (debug != null) "started (debug park ${debug.parkId})" else "started (outing)")
         return START_NOT_STICKY
@@ -408,8 +450,35 @@ class RuleWatchService : LifecycleService() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    /** スキャン画面がカメラを使い始めた／使い終えた（main） */
+    private fun onHostCameraChanged(inUse: Boolean) {
+        mainHandler.removeCallbacks(rebindAfterHost)
+        if (!alive) return
+        if (inUse) {
+            unbindAnalysis()
+            Log.d(TAG, "camera yielded to the scan screen")
+        } else {
+            // 画面側の unbindAll() がこの後に来ても外されないよう、少し待ってから開き直す（間に合わなくても watchdog が直す）
+            mainHandler.postDelayed(rebindAfterHost, HOST_RELEASE_DELAY_MS)
+        }
+    }
+
+    /** 開いているべきなのに開いていなければ開く（main）。真っ暗で一時停止中なら resumeCamera に任せる */
+    private fun ensureBound() {
+        if (!alive || hostCameraInUse || suspended || activeConfig == null) return
+        bindAnalysis()
+    }
+
+    private fun isBoundSafe(provider: ProcessCameraProvider, a: ImageAnalysis): Boolean =
+        try {
+            provider.isBound(a)
+        } catch (e: Exception) {
+            true // 確かめられないときは何もしない
+        }
+
     /** ImageAnalysis を作って bind する（公園に入ったときと、一時停止からの再開時） */
     private fun bindAnalysis() {
+        if (hostCameraInUse) return // スキャン画面が使っている間は開かない（返されたら rebindAfterHost で開く）
         val provider = cameraProvider ?: return
         if (analysis != null) return
         try {

@@ -311,9 +311,7 @@ export async function getVisitedPark(
 export function resetEnterNotifications(): Promise<number> {
   const n = native();
   if (typeof n.resetEnterNotifications !== "function") {
-    return Promise.reject(
-      new Error(getT().tracker.resetUnsupported),
-    );
+    return Promise.reject(new Error(getT().tracker.resetUnsupported));
   }
   return n.resetEnterNotifications();
 }
@@ -389,6 +387,11 @@ export function getRuleWatchStatus(): Promise<RuleWatchStatus> {
         parkName: null,
         debug: false,
       });
+}
+
+export async function setScanCameraActive(active: boolean): Promise<void> {
+  if (!Native?.setScanCameraActive) return;
+  await Native.setScanCameraActive(active);
 }
 
 export function getOutingStatus(): Promise<OutingStatus> {
