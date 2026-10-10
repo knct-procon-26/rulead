@@ -2,7 +2,7 @@
   "expo": {
     "name": "rulead",
     "slug": "rulead",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rulead",
@@ -19,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "club.prolab.rulead",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "bundler": "metro",
